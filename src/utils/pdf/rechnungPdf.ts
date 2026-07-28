@@ -3,7 +3,7 @@ import type { Rechnung, Stammdaten } from '../../db/types'
 import { formatEuro, formatDate } from '../format'
 import { rechnungTotals } from '../rechnung'
 import { downloadPdf } from './setup'
-import { absenderBlock, absenderZeile, cell, fetchLogoDataUrl, footerBlock, metaTable, pdfStyles } from './shared'
+import { absenderBlock, cell, fetchLogoDataUrl, footerBlock, metaTable, pdfStyles } from './shared'
 
 export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
   const { netto, ustBetrag, brutto } = rechnungTotals(rechnung.positionen, rechnung.ustSatz)
@@ -18,19 +18,12 @@ export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdate
   ])
 
   const content: Content[] = [
-    {
-      columns: [
-        absenderBlock(stammdaten, logoDataUrl, true),
-        {
-          width: 'auto',
-          stack: [
-            { text: absenderZeile(stammdaten), style: 'small', margin: [0, 0, 0, 4] },
-            { text: 'Rechnungsanschrift', style: 'label' },
-            { text: rechnung.rechnungsanschrift, style: 'cell' },
-          ],
-        },
-      ],
-    },
+    absenderBlock(stammdaten, logoDataUrl, true),
+    // Empfängeradresse: früher stand hier zusätzlich eine verkleinerte
+    // Absenderzeile plus das Label "Rechnungsanschrift" darüber — wirkte
+    // wie eine doppelte Adresse, da der Absender ja bereits vollständig
+    // oben steht. Jetzt nur noch die reine Anschrift, ohne Beschriftung.
+    { text: rechnung.rechnungsanschrift, style: 'cell', margin: [0, 12, 0, 0] },
     {
       text: `Rechnung Nr. ${rechnung.rechnungsnummer} vom ${formatDate(rechnung.erstelltAm.slice(0, 10))}`,
       style: 'docTitleCompact',

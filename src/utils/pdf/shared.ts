@@ -17,7 +17,9 @@ export const pdfStyles: Record<string, Style> = {
   small: { fontSize: 8, color: '#666666' },
   tableHeader: { bold: true, fontSize: 9, fillColor: '#eeeeee' },
   cell: { fontSize: 9 },
-  totalLabel: { fontSize: 10, bold: true },
+  // Gleiche Größe wie "cell" (nur fett), damit die Rechnung insgesamt mit
+  // nur 3 Schriftgrößen auskommt (8 / 9 / 12) statt vieler kleiner Abstufungen.
+  totalLabel: { fontSize: 9, bold: true },
   sectionTitle: { fontSize: 12, bold: true, margin: [0, 16, 0, 6] },
 }
 
