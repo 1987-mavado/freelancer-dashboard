@@ -83,12 +83,19 @@ export function makeRepo<T extends { id?: number }>(table: string) {
       notify(table)
     },
 
-    // Upsert eines vollständigen Objekts inkl. bekannter id (Ersatz für
-    // Dexies `.put()`, das je nach Vorhandensein von `id` insert oder
-    // update ausführt).
+    // Speichert ein vollständiges Objekt mit bekannter (bereits existierender)
+    // id (Ersatz für Dexies `.put()`). Das ist bewusst ein UPDATE und kein
+    // upsert: alle id-Spalten sind `generated always as identity`, und Postgres
+    // verbietet es, bei so einer Spalte explizit einen Wert einzufügen ("cannot
+    // insert a non-DEFAULT value into column id") — ein upsert mit gesetzter id
+    // scheiterte deshalb serverseitig immer mit HTTP 400, sobald die Zeile
+    // bereits existierte (z.B. bei jedem Speichern nach dem ersten Anlegen
+    // einer KVA). `put()` wird im Code ausschließlich für bereits vorhandene
+    // Zeilen aufgerufen (id ist Pflichtparameter), ein reines UPDATE ist daher
+    // korrekt und umgeht das Identity-Problem komplett.
     async put(obj: T & { id: number }): Promise<void> {
-      const row = appToRow(obj as unknown as Record<string, unknown>, { keepId: true })
-      const { error } = await supabase.from(table).upsert(row)
+      const row = appToRow(obj as unknown as Record<string, unknown>)
+      const { error } = await supabase.from(table).update(row).eq('id', obj.id)
       if (error) throw error
       notify(table)
     },
