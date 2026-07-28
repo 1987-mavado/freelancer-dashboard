@@ -1,6 +1,28 @@
 import { supabase } from '../db/supabaseClient'
-import { projekteRepo, agenturenRepo, kundenRepo } from '../db/repo'
-import type { RechnungPosition } from '../db/types'
+import { projekteRepo, agenturenRepo, kundenRepo, rechnungenRepo } from '../db/repo'
+import type { Rechnung, RechnungPosition } from '../db/types'
+import { todayISO, addDaysISO } from './format'
+
+// Ermittelt für ein gegebenes Präfix (z.B. "KUNDE-26-") die nächste freie
+// laufende Nummer. Bewusst MAX-basiert (höchste bereits vergebene Nummer + 1)
+// statt COUNT-basiert: bei COUNT würde das Löschen einer Rechnung dazu
+// führen, dass die nächste neu vergebene Nummer eine bereits verwendete
+// Nummer erneut trifft (Kollisionsgefahr trotz `unique`-Constraint in der
+// DB). MAX ist robust gegenüber Lücken durch gelöschte/umbenannte Rechnungen.
+export async function nextRechnungsnummer(prefix: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('rechnungen')
+    .select('rechnungsnummer')
+    .like('rechnungsnummer', `${prefix}%`)
+  if (error) throw error
+  let max = 0
+  for (const row of data ?? []) {
+    const suffix = (row.rechnungsnummer as string).slice(prefix.length)
+    const n = parseInt(suffix, 10)
+    if (!Number.isNaN(n) && n > max) max = n
+  }
+  return `${prefix}${String(max + 1).padStart(3, '0')}`
+}
 
 export async function generateRechnungsnummer(projektId: number): Promise<string> {
   const projekt = await projekteRepo.get(projektId)
@@ -17,20 +39,49 @@ export async function generateRechnungsnummer(projektId: number): Promise<string
   const code = codeBase.split(/\s+/)[0].toUpperCase().replace(/[^A-Z0-9]/g, '') || 'KUNDE'
   const year2 = String(new Date().getFullYear()).slice(-2)
   const prefix = `${code}-${year2}-`
-  // Einzelnutzer-App mit geringem Schreibvolumen: Zählen per COUNT statt
-  // client-seitigem Laden aller Zeilen. Bei theoretisch gleichzeitigen
-  // Schreibzugriffen könnte es zu doppelten Nummern kommen (kein
-  // DB-seitiger Sequence-Lock) — für den Ein-Personen-Betrieb akzeptables
-  // Risiko, `rechnungsnummer` bleibt zusätzlich `unique` in der DB, sodass
-  // ein Kollisionsfall beim Speichern zumindest sichtbar fehlschlägt statt
-  // still zwei Rechnungen mit derselben Nummer anzulegen.
-  const { count, error } = await supabase
-    .from('rechnungen')
-    .select('id', { count: 'exact', head: true })
-    .like('rechnungsnummer', `${prefix}%`)
-  if (error) throw error
-  const next = (count ?? 0) + 1
-  return `${prefix}${String(next).padStart(3, '0')}`
+  return nextRechnungsnummer(prefix)
+}
+
+// Leere Rechnung mit sinnvollen Vorbelegungen. Wird sowohl von der manuellen
+// Neuanlage (RechnungDetail.tsx) als auch vom Auto-Anlegen beim Abschluss
+// eines Projekts (ProjektDetail.tsx) verwendet.
+export function emptyRechnung(projektId: number, nummer: string): Rechnung {
+  return {
+    projektId,
+    rechnungsnummer: nummer,
+    bestellnummer: '',
+    rechnungsanschrift: '',
+    lieferanschrift: '',
+    empfaengerName: '',
+    empfaengerStrasse: '',
+    empfaengerPlz: '',
+    empfaengerOrt: '',
+    empfaengerLand: 'DE',
+    leitwegId: '',
+    leistungszeitraumVon: todayISO(),
+    leistungszeitraumBis: todayISO(),
+    positionen: [],
+    ustSatz: 19,
+    faelligkeitsdatum: addDaysISO(14),
+    zahlungsstatus: 'offen',
+    erstelltAm: new Date().toISOString(),
+  }
+}
+
+// Legt automatisch eine leere Rechnung an, sobald ein Projekt auf
+// "abgeschlossen" gesetzt wird — aber nur, wenn für dieses Projekt noch
+// keine Rechnung existiert (verhindert Duplikate bei mehrfachem Speichern
+// im Status "abgeschlossen"). Adresse und Positionen müssen danach manuell
+// ergänzt werden, da Kunden/Agenturen aktuell keine Adressdaten hinterlegt
+// haben. Gibt die ID der neu angelegten Rechnung zurück, oder `undefined`,
+// wenn bereits eine Rechnung existiert (dann wurde nichts angelegt).
+export async function ensureRechnungFuerAbgeschlossenesProjekt(projektId: number): Promise<number | undefined> {
+  const alle = await rechnungenRepo.list()
+  const vorhanden = alle.some((r) => r.projektId === projektId)
+  if (vorhanden) return undefined
+  const nummer = await generateRechnungsnummer(projektId)
+  const rechnung = emptyRechnung(projektId, nummer)
+  return rechnungenRepo.add(rechnung)
 }
 
 export function rechnungTotals(positionen: RechnungPosition[], ustSatz: number) {

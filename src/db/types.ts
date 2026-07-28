@@ -15,6 +15,8 @@ export interface Stammdaten {
   bic: string
   bank: string
   zahlungsbedingungen: string
+  logoUrl: string
+  rechnungAbschlusstext: string
   googleClientId: string
   googleCalendarId: string
   googleLastSyncedAt: string
@@ -115,6 +117,7 @@ export interface Rechnung {
   id?: number
   projektId: number
   rechnungsnummer: string
+  bestellnummer: string
   rechnungsanschrift: string
   lieferanschrift: string
   empfaengerName: string

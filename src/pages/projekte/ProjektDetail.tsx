@@ -4,6 +4,7 @@ import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { projekteRepo, kundenRepo, agenturenRepo } from '../../db/repo'
 import type { Projekt } from '../../db/types'
 import PageHeader from '../../layout/PageHeader'
+import { ensureRechnungFuerAbgeschlossenesProjekt } from '../../utils/rechnung'
 
 const emptyForm: Projekt = {
   kundeId: 0,
@@ -53,11 +54,23 @@ export default function ProjektDetail() {
 
   async function handleSave() {
     if (!form.name.trim() || !form.kundeId) return
+    const targetId = isNew ? await projekteRepo.add(form) : projektId!
+    if (!isNew) await projekteRepo.update(targetId, form)
+
+    // Wird der Status auf "abgeschlossen" gesetzt, automatisch eine leere
+    // Rechnung anlegen (nur falls noch keine existiert) und direkt dorthin
+    // weiterleiten, damit Adresse/Positionen sofort ergänzt werden können.
+    if (form.status === 'abgeschlossen') {
+      const neueRechnungId = await ensureRechnungFuerAbgeschlossenesProjekt(targetId)
+      if (neueRechnungId) {
+        navigate(`/rechnungen/${neueRechnungId}`, { replace: true })
+        return
+      }
+    }
+
     if (isNew) {
-      const newId = await projekteRepo.add(form)
-      navigate(`/projekte/${newId}`, { replace: true })
+      navigate(`/projekte/${targetId}`, { replace: true })
     } else {
-      await projekteRepo.update(projektId!, form)
       navigate('/projekte')
     }
   }

@@ -51,6 +51,9 @@ const STAMMDATEN_DEFAULTS: Stammdaten = {
   bic: '',
   bank: 'N26',
   zahlungsbedingungen: '14 Tage netto',
+  logoUrl: '',
+  rechnungAbschlusstext:
+    'Vielen Dank für die gute Zusammenarbeit! Bitte überweisen Sie den Rechnungsbetrag unter Angabe der Rechnungsnummer bis zum genannten Fälligkeitsdatum auf das unten angegebene Konto.',
   googleClientId: '',
   googleCalendarId: 'primary',
   googleLastSyncedAt: '',

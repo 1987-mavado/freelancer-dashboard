@@ -17,14 +17,39 @@ export const pdfStyles: Record<string, Style> = {
   sectionTitle: { fontSize: 12, bold: true, margin: [0, 16, 0, 6] },
 }
 
-export function absenderBlock(stammdaten: Stammdaten): Content {
-  return {
-    stack: [
-      { text: stammdaten.name || 'Absender', style: 'brand' },
-      { text: stammdaten.adresse || '', style: 'small' },
-      { text: [stammdaten.telefon, stammdaten.email].filter(Boolean).join(' · '), style: 'small' },
-      { text: stammdaten.website || '', style: 'small' },
-    ],
+export function absenderBlock(stammdaten: Stammdaten, logoDataUrl?: string): Content {
+  const stack: Content[] = []
+  if (logoDataUrl) {
+    stack.push({ image: logoDataUrl, width: 120, margin: [0, 0, 0, 8] })
+  }
+  stack.push(
+    { text: stammdaten.name || 'Absender', style: 'brand' },
+    { text: stammdaten.adresse || '', style: 'small' },
+    { text: [stammdaten.telefon, stammdaten.email].filter(Boolean).join(' · '), style: 'small' },
+    { text: stammdaten.website || '', style: 'small' },
+  )
+  return { stack }
+}
+
+// pdfmake kann Bilder nur als Base64-Data-URI einbetten, nicht per direkter
+// Remote-URL. Das hochgeladene Logo liegt aber als öffentliche Supabase-
+// Storage-URL vor — wird hier client-seitig geladen und umgewandelt. Schlägt
+// das fehl (z.B. kein Logo hinterlegt, Netzwerkfehler), wird `undefined`
+// zurückgegeben und der Aufrufer lässt den Logo-Platz einfach weg.
+export async function fetchLogoDataUrl(url: string): Promise<string | undefined> {
+  if (!url.trim()) return undefined
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return undefined
+    const blob = await res.blob()
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return undefined
   }
 }
 

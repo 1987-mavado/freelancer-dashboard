@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { rechnungenRepo, projekteRepo, getStammdaten } from '../../db/repo'
 import type { Rechnung, RechnungPosition, Zahlungsstatus } from '../../db/types'
 import PageHeader from '../../layout/PageHeader'
-import { generateRechnungsnummer, rechnungTotals } from '../../utils/rechnung'
-import { formatEuro, todayISO, addDaysISO, uid } from '../../utils/format'
+import { emptyRechnung, generateRechnungsnummer, rechnungTotals } from '../../utils/rechnung'
+import { formatEuro, uid } from '../../utils/format'
 
-type EmpfaengerFeld = 'empfaengerName' | 'empfaengerStrasse' | 'empfaengerPlz' | 'empfaengerOrt' | 'empfaengerLand' | 'leitwegId'
-type LegacyRechnung = Omit<Rechnung, EmpfaengerFeld> & Partial<Pick<Rechnung, EmpfaengerFeld>>
+type LegacyFeld = 'empfaengerName' | 'empfaengerStrasse' | 'empfaengerPlz' | 'empfaengerOrt' | 'empfaengerLand' | 'leitwegId' | 'bestellnummer'
+type LegacyRechnung = Omit<Rechnung, LegacyFeld> & Partial<Pick<Rechnung, LegacyFeld>>
 
 function withDefaults(r: LegacyRechnung): Rechnung {
   return {
@@ -18,29 +18,8 @@ function withDefaults(r: LegacyRechnung): Rechnung {
     empfaengerOrt: '',
     empfaengerLand: 'DE',
     leitwegId: '',
+    bestellnummer: '',
     ...r,
-  }
-}
-
-function emptyRechnung(projektId: number, nummer: string): Rechnung {
-  return {
-    projektId,
-    rechnungsnummer: nummer,
-    rechnungsanschrift: '',
-    lieferanschrift: '',
-    empfaengerName: '',
-    empfaengerStrasse: '',
-    empfaengerPlz: '',
-    empfaengerOrt: '',
-    empfaengerLand: 'DE',
-    leitwegId: '',
-    leistungszeitraumVon: todayISO(),
-    leistungszeitraumBis: todayISO(),
-    positionen: [],
-    ustSatz: 19,
-    faelligkeitsdatum: addDaysISO(14),
-    zahlungsstatus: 'offen',
-    erstelltAm: new Date().toISOString(),
   }
 }
 
@@ -64,10 +43,28 @@ export default function RechnungDetail() {
   const [exportingExcel, setExportingExcel] = useState(false)
   const [exportingXRechnung, setExportingXRechnung] = useState(false)
   const [exportingZugferd, setExportingZugferd] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
+  // `existing` kommt aus useSupabaseQuery und wird nicht nur beim Laden neu
+  // geliefert, sondern auch jedes Mal, wenn `save()` unten selbst schreibt
+  // (put() ruft notify('rechnungen') auf, das lauscht auch diese Komponente).
+  // Ohne die loadedRechnungIdRef-Sperre würde also jeder eigene Speichervorgang
+  // kurz danach den lokalen `form`-State mit der Serverantwort überschreiben
+  // — genau der Bug, der zuvor bei KVAs Eingaben verschwinden ließ (siehe
+  // KvaDetail.tsx). Deshalb wird `form` nur einmal pro Rechnungs-ID aus
+  // `existing` befüllt, nicht bei jedem Refetch.
+  const loadedRechnungIdRef = useRef<number | undefined>(undefined)
   useEffect(() => {
-    if (existing) setForm(withDefaults(existing))
-  }, [existing])
+    if (existing && loadedRechnungIdRef.current !== rechnungId) {
+      setForm(withDefaults(existing))
+      loadedRechnungIdRef.current = rechnungId
+    }
+  }, [existing, rechnungId])
+
+  // Reihenfolge der Speicheraufrufe kann durcheinandergeraten (schnelles
+  // Tippen feuert je Änderung einen eigenen put()-Aufruf); saveSeqRef sorgt
+  // dafür, dass nur der zuletzt gestartete Aufruf den Anzeigestatus setzt.
+  const saveSeqRef = useRef(0)
 
   async function handleCreate() {
     if (!setupProjektId) return
@@ -79,7 +76,17 @@ export default function RechnungDetail() {
 
   async function save(next: Rechnung) {
     setForm(next)
-    if (next.id) await rechnungenRepo.put(next as Rechnung & { id: number })
+    if (!next.id) return
+    const seq = ++saveSeqRef.current
+    setSaveState('saving')
+    try {
+      await rechnungenRepo.put(next as Rechnung & { id: number })
+      if (seq === saveSeqRef.current) setSaveState('saved')
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Rechnung speichern fehlgeschlagen', err)
+      if (seq === saveSeqRef.current) setSaveState('error')
+    }
   }
 
   async function handleDelete() {
@@ -198,13 +205,37 @@ export default function RechnungDetail() {
 
   return (
     <div>
-      <PageHeader title={form.rechnungsnummer} />
+      <PageHeader
+        title={form.rechnungsnummer}
+        action={
+          <div className="row" style={{ alignItems: 'center', gap: 'var(--s2)' }}>
+            {saveState === 'saving' && <span className="muted">Speichert…</span>}
+            {saveState === 'saved' && <span className="muted">Gespeichert</span>}
+            {saveState === 'error' && <span className="error">Fehler beim Speichern</span>}
+          </div>
+        }
+      />
       <div className="stack">
         <div className="row">
           <div>
             <label>Rechnungsnummer</label>
-            <input className="field" value={form.rechnungsnummer} disabled />
+            <input
+              className="field"
+              value={form.rechnungsnummer}
+              onChange={(e) => save({ ...form, rechnungsnummer: e.target.value })}
+            />
           </div>
+          <div>
+            <label>Bestellnummer (optional)</label>
+            <input
+              className="field"
+              value={form.bestellnummer}
+              onChange={(e) => save({ ...form, bestellnummer: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="row">
           <div>
             <label>Zahlungsstatus</label>
             <select

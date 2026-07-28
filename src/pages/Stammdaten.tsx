@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSupabaseQuery } from '../db/useSupabaseQuery'
 import { getStammdaten, putStammdaten } from '../db/repo'
+import { supabase } from '../db/supabaseClient'
 import type { Stammdaten as StammdatenType } from '../db/types'
 import PageHeader from '../layout/PageHeader'
 import { formatDate } from '../utils/format'
@@ -24,6 +25,8 @@ const emptyForm: StammdatenType = {
   bic: '',
   bank: '',
   zahlungsbedingungen: '',
+  logoUrl: '',
+  rechnungAbschlusstext: '',
   googleClientId: '',
   googleCalendarId: 'primary',
   googleLastSyncedAt: '',
@@ -36,6 +39,8 @@ export default function Stammdaten() {
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null)
   const [syncFailed, setSyncFailed] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [logoError, setLogoError] = useState<string | null>(null)
 
   useEffect(() => {
     if (stammdaten) setForm({ ...emptyForm, ...stammdaten })
@@ -44,6 +49,32 @@ export default function Stammdaten() {
   function set<K extends keyof StammdatenType>(key: K, value: StammdatenType[K]) {
     setForm((f) => ({ ...f, [key]: value }))
     setSaved(false)
+  }
+
+  // Lädt das gewählte Bild in den öffentlichen Supabase-Storage-Bucket
+  // "logos" hoch und speichert sofort die öffentliche URL in den Stammdaten
+  // (nicht erst beim nächsten "Speichern"-Klick), damit das Logo nicht
+  // verloren geht, falls der Nutzer die Seite vorher verlässt.
+  async function handleLogoUpload(file: File) {
+    setUploadingLogo(true)
+    setLogoError(null)
+    try {
+      const ext = file.name.split('.').pop() || 'png'
+      const path = `logo-${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(path, file, { upsert: true, cacheControl: '3600' })
+      if (uploadError) throw uploadError
+      const { data } = supabase.storage.from('logos').getPublicUrl(path)
+      const next = { ...form, logoUrl: data.publicUrl }
+      setForm(next)
+      await putStammdaten(next)
+      setSaved(true)
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setUploadingLogo(false)
+    }
   }
 
   async function handleSave() {
@@ -177,6 +208,39 @@ export default function Stammdaten() {
             placeholder="z.B. 14 Tage netto"
           />
         </div>
+
+        <div className="section-title">Rechnungs-PDF</div>
+        <div>
+          <label>Logo</label>
+          {form.logoUrl && (
+            <div style={{ marginBottom: 'var(--s2)' }}>
+              <img src={form.logoUrl} alt="Firmenlogo" style={{ maxHeight: 60, maxWidth: 200 }} />
+            </div>
+          )}
+          <input
+            className="field"
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void handleLogoUpload(file)
+            }}
+            disabled={uploadingLogo}
+          />
+          {uploadingLogo && <p className="muted">Logo wird hochgeladen…</p>}
+          {logoError && <p className="error">Fehler beim Hochladen: {logoError}</p>}
+          <p className="muted">Erscheint oben links auf dem Rechnungs-PDF.</p>
+        </div>
+        <div>
+          <label>Abschlusstext (Rechnungs-PDF)</label>
+          <textarea
+            className="field"
+            value={form.rechnungAbschlusstext}
+            onChange={(e) => set('rechnungAbschlusstext', e.target.value)}
+            rows={4}
+          />
+        </div>
+
         <button className="btn full" onClick={handleSave}>
           {saved ? 'Gespeichert ✓' : 'Speichern'}
         </button>

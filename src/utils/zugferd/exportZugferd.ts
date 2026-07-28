@@ -5,7 +5,7 @@ import { pdfMake } from '../pdf/setup'
 import { buildZugferdXml } from './buildZugferdXml'
 
 export async function exportZugferdPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
-  const visualPdfBuffer = await pdfMake.createPdf(buildRechnungPdf(rechnung, stammdaten)).getBuffer()
+  const visualPdfBuffer = await pdfMake.createPdf(await buildRechnungPdf(rechnung, stammdaten)).getBuffer()
   const xml = buildZugferdXml(rechnung, stammdaten)
 
   const pdfDoc = await PDFDocument.load(visualPdfBuffer)

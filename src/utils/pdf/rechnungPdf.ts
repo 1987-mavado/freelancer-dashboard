@@ -3,10 +3,11 @@ import type { Rechnung, Stammdaten } from '../../db/types'
 import { formatEuro, formatDate } from '../format'
 import { rechnungTotals } from '../rechnung'
 import { downloadPdf } from './setup'
-import { absenderBlock, absenderZeile, cell, footerBlock, metaTable, pdfStyles } from './shared'
+import { absenderBlock, absenderZeile, cell, fetchLogoDataUrl, footerBlock, metaTable, pdfStyles } from './shared'
 
-export function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
+export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
   const { netto, ustBetrag, brutto } = rechnungTotals(rechnung.positionen, rechnung.ustSatz)
+  const logoDataUrl = await fetchLogoDataUrl(stammdaten.logoUrl)
 
   const positionenRows: TableCell[][] = rechnung.positionen.map((p) => [
     cell(p.beschreibung, { style: 'cell' }),
@@ -19,7 +20,7 @@ export function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
   const content: Content[] = [
     {
       columns: [
-        absenderBlock(stammdaten),
+        absenderBlock(stammdaten, logoDataUrl),
         {
           width: 'auto',
           stack: [
@@ -30,13 +31,15 @@ export function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
         },
       ],
     },
-    { text: 'RECHNUNG', style: 'docTitle' },
+    {
+      text: `Rechnung Nr. ${rechnung.rechnungsnummer} vom ${formatDate(rechnung.erstelltAm.slice(0, 10))}`,
+      style: 'docTitle',
+    },
     {
       columns: [
         metaTable([
-          ['Rechnungsnummer', rechnung.rechnungsnummer],
-          ['Rechnungsdatum', formatDate(rechnung.erstelltAm.slice(0, 10))],
           ['Fälligkeitsdatum', formatDate(rechnung.faelligkeitsdatum)],
+          ...(rechnung.bestellnummer.trim() ? ([['Bestellnummer', rechnung.bestellnummer]] as [string, string][]) : []),
         ]),
         metaTable([
           ['Leistungszeitraum von', formatDate(rechnung.leistungszeitraumVon)],
@@ -93,8 +96,12 @@ export function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
     })
   }
 
+  if (stammdaten.rechnungAbschlusstext.trim()) {
+    content.push({ text: stammdaten.rechnungAbschlusstext, style: 'small', margin: [0, 20, 0, 4] })
+  }
+
   if (stammdaten.zahlungsbedingungen.trim()) {
-    content.push({ text: stammdaten.zahlungsbedingungen, style: 'small', margin: [0, 20, 0, 0] })
+    content.push({ text: stammdaten.zahlungsbedingungen, style: 'small', margin: [0, 0, 0, 0] })
   }
 
   return {
@@ -108,5 +115,5 @@ export function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
 }
 
 export async function exportRechnungPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
-  await downloadPdf(buildRechnungPdf(rechnung, stammdaten), `${rechnung.rechnungsnummer}.pdf`)
+  await downloadPdf(await buildRechnungPdf(rechnung, stammdaten), `${rechnung.rechnungsnummer}.pdf`)
 }
