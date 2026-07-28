@@ -20,7 +20,7 @@ export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdate
   const content: Content[] = [
     {
       columns: [
-        absenderBlock(stammdaten, logoDataUrl),
+        absenderBlock(stammdaten, logoDataUrl, true),
         {
           width: 'auto',
           stack: [
@@ -33,7 +33,7 @@ export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdate
     },
     {
       text: `Rechnung Nr. ${rechnung.rechnungsnummer} vom ${formatDate(rechnung.erstelltAm.slice(0, 10))}`,
-      style: 'docTitle',
+      style: 'docTitleCompact',
     },
     {
       columns: [

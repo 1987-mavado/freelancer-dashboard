@@ -9,6 +9,10 @@ export function cell(text: string, opts?: { style?: string; alignment?: Alignmen
 export const pdfStyles: Record<string, Style> = {
   brand: { fontSize: 16, bold: true },
   docTitle: { fontSize: 20, bold: true, margin: [0, 24, 0, 12] },
+  // Kompakte Kopfzeile für Rechnungen: Firmenname steht bereits im Logo, daher
+  // dort keine große "brand"-Überschrift mehr nötig; und der Rechnungstitel
+  // selbst soll deutlich unauffälliger sein als bei KVAs.
+  docTitleCompact: { fontSize: 12, bold: true, margin: [0, 16, 0, 8] },
   label: { fontSize: 8, color: '#666666' },
   small: { fontSize: 8, color: '#666666' },
   tableHeader: { bold: true, fontSize: 9, fillColor: '#eeeeee' },
@@ -17,13 +21,17 @@ export const pdfStyles: Record<string, Style> = {
   sectionTitle: { fontSize: 12, bold: true, margin: [0, 16, 0, 6] },
 }
 
-export function absenderBlock(stammdaten: Stammdaten, logoDataUrl?: string): Content {
+// `compactName`: wenn true, wird der Firmenname in der gleichen Größe wie die
+// Adresse dargestellt statt groß/fett — sinnvoll, sobald ein Logo mit dem
+// Namen gezeigt wird (aktuell bei Rechnungen der Fall), damit der Name nicht
+// doppelt groß erscheint.
+export function absenderBlock(stammdaten: Stammdaten, logoDataUrl?: string, compactName = false): Content {
   const stack: Content[] = []
   if (logoDataUrl) {
     stack.push({ image: logoDataUrl, width: 120, margin: [0, 0, 0, 8] })
   }
   stack.push(
-    { text: stammdaten.name || 'Absender', style: 'brand' },
+    { text: stammdaten.name || 'Absender', style: compactName ? 'small' : 'brand' },
     { text: stammdaten.adresse || '', style: 'small' },
     { text: [stammdaten.telefon, stammdaten.email].filter(Boolean).join(' · '), style: 'small' },
     { text: stammdaten.website || '', style: 'small' },
