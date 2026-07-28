@@ -198,6 +198,23 @@ a {
   gap: var(--s3);
 }
 
+.warn-banner {
+  background: rgba(232, 147, 90, 0.14);
+  border: 1px solid var(--orange);
+  border-radius: var(--radius);
+  padding: var(--s4);
+  margin-bottom: var(--s4);
+  color: var(--text);
+  text-decoration: none;
+  display: block;
+}
+
+.warn-banner .warn-title {
+  font-weight: 700;
+  color: var(--orange);
+  margin-bottom: var(--s1);
+}
+
 .tile {
   background: var(--surface);
   border: 1px solid var(--border);

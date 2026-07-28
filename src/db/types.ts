@@ -20,6 +20,10 @@ export interface Stammdaten {
   googleClientId: string
   googleCalendarId: string
   googleLastSyncedAt: string
+  // Für den Auslastungs-Warner: bei Überschreitung dieser Wochenstunden in
+  // der aktuellen Kalenderwoche (erfasst über die Zeiterfassung) erscheint
+  // ein Hinweis-Banner auf dem Dashboard.
+  wochenkapazitaetStunden: number
 }
 
 export interface Agentur {

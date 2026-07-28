@@ -55,3 +55,27 @@ export function formatVerstrichen(sekunden: number): string {
 export function minutenZuStunden(minuten: number): number {
   return minuten / 60
 }
+
+// Montag der Kalenderwoche, die `datumISO` enthält (als YYYY-MM-DD).
+function montagDerWoche(datumISO: string): string {
+  const d = new Date(`${datumISO}T00:00:00`)
+  const tag = d.getDay() // 0 = Sonntag, 1 = Montag, ... 6 = Samstag
+  const diffZuMontag = tag === 0 ? -6 : 1 - tag
+  d.setDate(d.getDate() + diffZuMontag)
+  return d.toISOString().slice(0, 10)
+}
+
+// Summiert die erfassten Stunden (dauerMinuten) aller Zeiteinträge, deren
+// `datum` in dieselbe Kalenderwoche (Montag–Sonntag) fällt wie `referenzDatum`
+// (Standard: heute). Läuft ein Timer gerade noch (dauerMinuten noch 0), zählt
+// er hier bewusst nicht mit — erst nach dem Stoppen.
+export function wochenstunden(zeiteintraege: Zeiteintrag[], referenzDatum: string = todayISO()): number {
+  const montag = montagDerWoche(referenzDatum)
+  const sonntagDate = new Date(`${montag}T00:00:00`)
+  sonntagDate.setDate(sonntagDate.getDate() + 6)
+  const sonntag = sonntagDate.toISOString().slice(0, 10)
+  const minuten = zeiteintraege
+    .filter((z) => z.datum >= montag && z.datum <= sonntag)
+    .reduce((sum, z) => sum + z.dauerMinuten, 0)
+  return minutenZuStunden(minuten)
+}

@@ -1,7 +1,17 @@
 import { Link } from 'react-router-dom'
 import { useSupabaseQuery } from '../db/useSupabaseQuery'
-import { bewerbungenRepo, projekteRepo, kvasRepo, rechnungenRepo, deadlinesRepo, todosRepo, getStammdaten } from '../db/repo'
+import {
+  bewerbungenRepo,
+  projekteRepo,
+  kvasRepo,
+  rechnungenRepo,
+  deadlinesRepo,
+  todosRepo,
+  getStammdaten,
+  zeiteintraegeRepo,
+} from '../db/repo'
 import { addDaysISO, todayISO } from '../utils/format'
+import { wochenstunden } from '../utils/zeiterfassung'
 
 export default function Dashboard() {
   const bewerbungenOffen = useSupabaseQuery(
@@ -33,6 +43,14 @@ export default function Dashboard() {
     [],
   )
   const stammdaten = useSupabaseQuery(['stammdaten'], () => getStammdaten(), [])
+  const wochenstundenErfasst = useSupabaseQuery(
+    ['zeiteintraege'],
+    async () => wochenstunden(await zeiteintraegeRepo.list()),
+    [],
+  )
+
+  const kapazitaet = stammdaten?.wochenkapazitaetStunden ?? 0
+  const ueberlastet = kapazitaet > 0 && (wochenstundenErfasst ?? 0) > kapazitaet
 
   const tiles = [
     { to: '/bewerbungen', label: 'Bewerbungen offen', value: bewerbungenOffen },
@@ -55,6 +73,15 @@ export default function Dashboard() {
       <p className="muted" style={{ marginBottom: 'var(--s5)' }}>
         {new Date().toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}
       </p>
+      {ueberlastet && (
+        <Link to="/zeit" className="warn-banner">
+          <div className="warn-title">⚠ Überlastet diese Woche</div>
+          <div>
+            {wochenstundenErfasst?.toFixed(1).replace('.', ',')} von {kapazitaet} Std. Wochenkapazität bereits
+            erfasst.
+          </div>
+        </Link>
+      )}
       <div className="tile-grid">
         {tiles.map((t) => (
           <Link key={t.label} to={t.to} className="tile">

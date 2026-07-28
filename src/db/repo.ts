@@ -59,6 +59,7 @@ const STAMMDATEN_DEFAULTS: Stammdaten = {
   googleClientId: '',
   googleCalendarId: 'primary',
   googleLastSyncedAt: '',
+  wochenkapazitaetStunden: 30,
 }
 
 // Stammdaten sind eine Singleton-Zeile (id=1). Die SQL-Migration legt sie

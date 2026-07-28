@@ -30,6 +30,7 @@ const emptyForm: StammdatenType = {
   googleClientId: '',
   googleCalendarId: 'primary',
   googleLastSyncedAt: '',
+  wochenkapazitaetStunden: 30,
 }
 
 export default function Stammdaten() {
@@ -239,6 +240,23 @@ export default function Stammdaten() {
             onChange={(e) => set('rechnungAbschlusstext', e.target.value)}
             rows={4}
           />
+        </div>
+
+        <div className="section-title">Auslastung</div>
+        <div>
+          <label>Wochenkapazität (Stunden)</label>
+          <input
+            className="field"
+            type="number"
+            min="0"
+            step="1"
+            value={form.wochenkapazitaetStunden}
+            onChange={(e) => set('wochenkapazitaetStunden', Number(e.target.value))}
+          />
+          <p className="muted">
+            Übersteigen deine in der Zeiterfassung erfassten Stunden in einer Kalenderwoche diesen Wert, erscheint
+            ein Hinweis auf der Startseite.
+          </p>
         </div>
 
         <button className="btn full" onClick={handleSave}>
