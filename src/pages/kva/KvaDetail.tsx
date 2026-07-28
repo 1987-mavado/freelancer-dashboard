@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { kvasRepo, projekteRepo, ratecardsRepo, kundenRepo, getStammdaten } from '../../db/repo'
@@ -42,14 +42,44 @@ export default function KvaDetail() {
   const [setupBezeichnung, setSetupBezeichnung] = useState('')
   const [exportingPdf, setExportingPdf] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
+  // `existing` kommt aus useSupabaseQuery und wird nicht nur beim Laden neu
+  // geliefert, sondern auch jedes Mal, wenn `save()` unten selbst schreibt
+  // (put() ruft notify('kvas') auf, das lauscht auch diese Komponente). Ohne
+  // die loadedKvaIdRef-Sperre würde also jeder eigene Speichervorgang kurz
+  // danach den lokalen `form`-State mit der (evtl. noch nicht ganz aktuellen)
+  // Serverantwort überschreiben — das war die Ursache dafür, dass beim
+  // Tippen/Phasenwechsel Eingaben plötzlich wieder verschwanden. Deshalb wird
+  // `form` nur einmal pro KVA-ID aus `existing` befüllt (initiales Laden bzw.
+  // Wechsel zu einer anderen KVA), nicht bei jedem Refetch.
+  const loadedKvaIdRef = useRef<number | undefined>(undefined)
   useEffect(() => {
-    if (existing) setForm(existing)
-  }, [existing])
+    if (existing && loadedKvaIdRef.current !== kvaId) {
+      setForm(existing)
+      loadedKvaIdRef.current = kvaId
+    }
+  }, [existing, kvaId])
+
+  // Reihenfolge der Speicheraufrufe kann durcheinandergeraten (z.B. bei
+  // schnellem Tippen feuert jede Änderung einen eigenen put()-Aufruf, die
+  // Antworten können in anderer Reihenfolge zurückkommen). saveSeqRef sorgt
+  // dafür, dass nur der zuletzt gestartete Aufruf den Anzeigestatus setzt.
+  const saveSeqRef = useRef(0)
 
   async function save(next: Kva) {
     setForm(next)
-    if (next.id) await kvasRepo.put(next as Kva & { id: number })
+    if (!next.id) return
+    const seq = ++saveSeqRef.current
+    setSaveState('saving')
+    try {
+      await kvasRepo.put(next as Kva & { id: number })
+      if (seq === saveSeqRef.current) setSaveState('saved')
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('KVA speichern fehlgeschlagen', err)
+      if (seq === saveSeqRef.current) setSaveState('error')
+    }
   }
 
   async function handleCreate() {
@@ -191,7 +221,19 @@ export default function KvaDetail() {
 
   return (
     <div>
-      <PageHeader title={form.bezeichnung || 'KVA'} />
+      <PageHeader
+        title={form.bezeichnung || 'KVA'}
+        action={
+          <div className="row" style={{ alignItems: 'center', gap: 'var(--s2)' }}>
+            {saveState === 'saving' && <span className="muted">Speichert…</span>}
+            {saveState === 'saved' && <span className="muted">Gespeichert</span>}
+            {saveState === 'error' && <span className="error">Fehler beim Speichern</span>}
+            <button className="btn small" onClick={() => form && save(form)}>
+              Speichern
+            </button>
+          </div>
+        }
+      />
       <div className="row" style={{ marginBottom: 'var(--s4)' }}>
         <button className={`btn small ${tab === 'ratecard' ? '' : 'ghost'}`} onClick={() => setTab('ratecard')}>
           1. Ratecard
