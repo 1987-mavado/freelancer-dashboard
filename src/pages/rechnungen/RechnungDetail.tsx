@@ -44,11 +44,13 @@ export default function RechnungDetail() {
   const [exportingXRechnung, setExportingXRechnung] = useState(false)
   const [exportingZugferd, setExportingZugferd] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  // Reines UI-Hilfsfeld (nicht in der DB gespeichert): wenn aktiviert, wird
-  // die Rechnungsanschrift automatisch von der Lieferanschrift übernommen
-  // und ist nicht mehr manuell editierbar — spart doppeltes Eintippen, wenn
-  // beide Adressen identisch sind.
-  const [rechnungsanschriftFolgtLieferanschrift, setRechnungsanschriftFolgtLieferanschrift] = useState(false)
+  // Reines UI-Hilfsfeld (nicht in der DB gespeichert): die Lieferanschrift
+  // ist optional und wird nur benötigt, wenn sie von der (Pflicht-)
+  // Rechnungsanschrift abweicht. Das Eingabefeld wird daher nur angezeigt,
+  // wenn diese Checkbox aktiviert ist; beim Deaktivieren wird der Wert
+  // geleert, damit auf dem PDF keine veraltete/versteckte Lieferanschrift
+  // hängen bleibt.
+  const [lieferanschriftAbweichend, setLieferanschriftAbweichend] = useState(false)
 
   // `existing` kommt aus useSupabaseQuery und wird nicht nur beim Laden neu
   // geliefert, sondern auch jedes Mal, wenn `save()` unten selbst schreibt
@@ -61,7 +63,9 @@ export default function RechnungDetail() {
   const loadedRechnungIdRef = useRef<number | undefined>(undefined)
   useEffect(() => {
     if (existing && loadedRechnungIdRef.current !== rechnungId) {
-      setForm(withDefaults(existing))
+      const merged = withDefaults(existing)
+      setForm(merged)
+      setLieferanschriftAbweichend(!!merged.lieferanschrift.trim())
       loadedRechnungIdRef.current = rechnungId
     }
   }, [existing, rechnungId])
@@ -94,15 +98,6 @@ export default function RechnungDetail() {
     }
   }
 
-  // Solange die Checkbox aktiv ist, hält dieser Effekt die Rechnungsanschrift
-  // synchron mit der Lieferanschrift (auch wenn Letztere danach noch geändert
-  // wird).
-  useEffect(() => {
-    if (rechnungsanschriftFolgtLieferanschrift && form && form.rechnungsanschrift !== form.lieferanschrift) {
-      void save({ ...form, rechnungsanschrift: form.lieferanschrift })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rechnungsanschriftFolgtLieferanschrift, form?.lieferanschrift])
 
   async function handleDelete() {
     if (!rechnungId) return
@@ -270,26 +265,31 @@ export default function RechnungDetail() {
           <textarea
             className="field"
             value={form.rechnungsanschrift}
-            disabled={rechnungsanschriftFolgtLieferanschrift}
             onChange={(e) => save({ ...form, rechnungsanschrift: e.target.value })}
           />
-          <div className="checkbox-row" style={{ marginTop: 'var(--s2)' }}>
-            <input
-              type="checkbox"
-              checked={rechnungsanschriftFolgtLieferanschrift}
-              onChange={(e) => setRechnungsanschriftFolgtLieferanschrift(e.target.checked)}
-            />
-            <span className="muted">Entspricht Lieferanschrift</span>
-          </div>
         </div>
-        <div>
-          <label>Lieferanschrift</label>
-          <textarea
-            className="field"
-            value={form.lieferanschrift}
-            onChange={(e) => save({ ...form, lieferanschrift: e.target.value })}
+        <div className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={lieferanschriftAbweichend}
+            onChange={(e) => {
+              const checked = e.target.checked
+              setLieferanschriftAbweichend(checked)
+              if (!checked) save({ ...form, lieferanschrift: '' })
+            }}
           />
+          <span className="muted">Lieferanschrift weicht ab</span>
         </div>
+        {lieferanschriftAbweichend && (
+          <div>
+            <label>Lieferanschrift</label>
+            <textarea
+              className="field"
+              value={form.lieferanschrift}
+              onChange={(e) => save({ ...form, lieferanschrift: e.target.value })}
+            />
+          </div>
+        )}
 
         <div className="section-title">Rechnungsempfänger (strukturiert, für XRechnung)</div>
         <div>
