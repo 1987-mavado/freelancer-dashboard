@@ -14,12 +14,18 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [submitting, setSubmitting] = useState(false)
 
   // Wenn der Nutzer auf den "Passwort vergessen"-Link aus der E-Mail klickt,
-  // leitet Supabase mit einem Recovery-Token in der URL hierher zurück. Der
-  // Client erkennt das automatisch und feuert das Event 'PASSWORD_RECOVERY'
-  // (inkl. einer bereits gültigen Session). Ohne diesen Zustand würde der
-  // Nutzer einfach den normalen Login-Bildschirm sehen und könnte nie ein
-  // neues Passwort setzen.
-  const [recovery, setRecovery] = useState(false)
+  // leitet Supabase mit einem Recovery-Token in der URL hierher zurück
+  // (z. B. #access_token=...&type=recovery). Der Client verarbeitet das
+  // zwar automatisch und feuert intern das Event 'PASSWORD_RECOVERY', aber
+  // das passiert oft schon, bevor React überhaupt gemountet und den
+  // Listener registriert hat (Supabase liest die URL bereits beim Erzeugen
+  // des Clients in supabaseClient.ts, also noch vor dem ersten Render) —
+  // dann kommt das Event nie bei uns an. Deshalb prüfen wir zusätzlich
+  // direkt und synchron beim allerersten Render, ob "type=recovery" in der
+  // URL steht, statt uns allein auf das Event zu verlassen.
+  const [recovery, setRecovery] = useState(
+    () => typeof window !== 'undefined' && window.location.hash.includes('type=recovery'),
+  )
   const [newPassword, setNewPassword] = useState('')
   const [newPassword2, setNewPassword2] = useState('')
   const [recoveryError, setRecoveryError] = useState('')
