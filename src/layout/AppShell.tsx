@@ -25,6 +25,10 @@ export default function AppShell() {
           <span className="icon">◷</span>
           Fokus
         </NavLink>
+        <NavLink to="/zeit" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <span className="icon">⏱</span>
+          Zeit
+        </NavLink>
         <NavLink to="/deadlines" className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="icon">⚑</span>
           Deadlines

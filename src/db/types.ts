@@ -153,6 +153,26 @@ export interface ToDo {
   erstelltAm: string
 }
 
+// Zeiterfassung: Start/Stopp-Timer + manuelle Einträge, verknüpft mit
+// Projekt + Rolle. `laeuft`/`startZeit` bilden einen laufenden Timer ab
+// (dauerMinuten ist dann noch 0 und wird erst beim Stoppen berechnet);
+// bei manuellen Einträgen bleibt startZeit leer und dauerMinuten wird direkt
+// eingegeben. `abgerechnet`/`rechnungId` markieren, ob/in welche Rechnung
+// der Eintrag bereits als Position übernommen wurde.
+export interface Zeiteintrag {
+  id?: number
+  projektId: number
+  rolle: string
+  datum: string
+  startZeit: string | null
+  dauerMinuten: number
+  laeuft: boolean
+  beschreibung: string
+  abgerechnet: boolean
+  rechnungId?: number | null
+  erstelltAm: string
+}
+
 export type CalendarEntityTyp = 'deadline' | 'rechnung' | 'projekt' | 'kva' | 'bewerbung'
 
 export interface CalendarSyncMap {

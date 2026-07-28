@@ -13,6 +13,7 @@ import type {
   Rechnung,
   Stammdaten,
   ToDo,
+  Zeiteintrag,
 } from './types'
 
 // Ein Repo pro Tabelle mit einfachem CRUD (kein Sonderverhalten). Ersetzt die
@@ -29,6 +30,7 @@ export const rechnungenRepo = makeRepo<Rechnung>('rechnungen')
 export const deadlinesRepo = makeRepo<Deadline>('deadlines')
 export const todosRepo = makeRepo<ToDo>('todos')
 export const calendarSyncMapRepo = makeRepo<CalendarSyncMap>('calendar_sync_map')
+export const zeiteintraegeRepo = makeRepo<Zeiteintrag>('zeiteintraege')
 
 // Konkrete Werte aus den Anforderungsunterlagen als Vorbelegung, damit eine
 // frisch aufgesetzte Stammdaten-Zeile nicht mit leeren Pflichtfeldern für

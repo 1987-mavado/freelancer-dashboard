@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
-import { rechnungenRepo, projekteRepo, getStammdaten } from '../../db/repo'
+import { rechnungenRepo, projekteRepo, getStammdaten, zeiteintraegeRepo, ratecardsRepo } from '../../db/repo'
 import type { Rechnung, RechnungPosition, Zahlungsstatus } from '../../db/types'
 import PageHeader from '../../layout/PageHeader'
 import { emptyRechnung, generateRechnungsnummer, rechnungTotals } from '../../utils/rechnung'
 import { formatEuro, uid } from '../../utils/format'
+import { rateFor } from '../../utils/kva'
+import { formatDauer, minutenZuStunden } from '../../utils/zeiterfassung'
 
 type LegacyFeld = 'empfaengerName' | 'empfaengerStrasse' | 'empfaengerPlz' | 'empfaengerOrt' | 'empfaengerLand' | 'leitwegId' | 'bestellnummer'
 type LegacyRechnung = Omit<Rechnung, LegacyFeld> & Partial<Pick<Rechnung, LegacyFeld>>
@@ -36,6 +38,8 @@ export default function RechnungDetail() {
   )
   const projekte = useSupabaseQuery(['projekte'], () => projekteRepo.list(), [])
   const stammdaten = useSupabaseQuery(['stammdaten'], () => getStammdaten(), [])
+  const zeiteintraege = useSupabaseQuery(['zeiteintraege'], () => zeiteintraegeRepo.list(), [])
+  const ratecards = useSupabaseQuery(['ratecards'], () => ratecardsRepo.list(), [])
 
   const [form, setForm] = useState<Rechnung | null>(null)
   const [setupProjektId, setSetupProjektId] = useState<number | ''>('')
@@ -136,6 +140,49 @@ export default function RechnungDetail() {
   }
 
   const { netto, ustBetrag, brutto } = rechnungTotals(form.positionen, form.ustSatz)
+
+  // Noch nicht abgerechnete Zeiteinträge zum Projekt dieser Rechnung — Basis
+  // für den "Zeiterfassung übernehmen"-Button unten bei den Positionen.
+  const offeneZeiteintraege = (zeiteintraege ?? []).filter(
+    (z) => z.projektId === form.projektId && !z.abgerechnet && !z.laeuft,
+  )
+  const offeneMinutenGesamt = offeneZeiteintraege.reduce((sum, z) => sum + z.dauerMinuten, 0)
+
+  async function handleUebernehmenZeiterfassung() {
+    if (!form || offeneZeiteintraege.length === 0) return
+    const projekt = projekte?.find((p) => p.id === form.projektId)
+    const projektRatecards = (ratecards ?? []).filter((r) => r.agenturId === projekt?.agenturId)
+
+    const minutenProRolle = new Map<string, number>()
+    for (const z of offeneZeiteintraege) {
+      minutenProRolle.set(z.rolle, (minutenProRolle.get(z.rolle) ?? 0) + z.dauerMinuten)
+    }
+    const zeilen = Array.from(minutenProRolle.entries()).map(([rolle, minuten]) => {
+      const stunden = Math.round(minutenZuStunden(minuten) * 100) / 100
+      const satz = projektRatecards.map((rc) => rateFor(rc, rolle)).find((r) => r > 0) ?? 0
+      return { rolle, stunden, satz }
+    })
+
+    const fehlendeSaetze = zeilen.filter((z) => z.satz === 0).map((z) => z.rolle)
+    const summary = zeilen.map((z) => `${z.rolle}: ${z.stunden} Std. × ${formatEuro(z.satz)}`).join('\n')
+    const warnung = fehlendeSaetze.length
+      ? `\n\nAchtung: Für „${fehlendeSaetze.join('“, „')}“ wurde kein Stundensatz in einer Ratecard dieser Agentur gefunden — Einzelpreis wird mit 0,00 € übernommen und muss manuell ergänzt werden.`
+      : ''
+    if (!confirm(`Folgende offene Zeiteinträge als Positionen übernehmen?\n\n${summary}${warnung}`)) return
+
+    const neuePositionen: RechnungPosition[] = zeilen.map((z) => ({
+      id: uid(),
+      beschreibung: `Zeiterfassung: ${z.rolle}`,
+      menge: z.stunden,
+      einheit: 'Std.',
+      einzelpreis: z.satz,
+    }))
+    const next = { ...form, positionen: [...form.positionen, ...neuePositionen] }
+    await save(next)
+    await Promise.all(
+      offeneZeiteintraege.map((z) => zeiteintraegeRepo.update(z.id!, { abgerechnet: true, rechnungId: form.id })),
+    )
+  }
 
   function addPosition() {
     if (!form) return
@@ -370,6 +417,11 @@ export default function RechnungDetail() {
         </div>
 
         <div className="section-title">Positionen</div>
+        {offeneZeiteintraege.length > 0 && (
+          <button className="btn ghost full" onClick={handleUebernehmenZeiterfassung}>
+            Zeiterfassung übernehmen ({formatDauer(offeneMinutenGesamt)} offen)
+          </button>
+        )}
         {form.positionen.map((p) => (
           <div key={p.id} className="card stack">
             <input
