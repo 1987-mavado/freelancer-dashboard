@@ -11,8 +11,10 @@ export const pdfStyles: Record<string, Style> = {
   docTitle: { fontSize: 20, bold: true, margin: [0, 24, 0, 12] },
   // Kompakte Kopfzeile für Rechnungen: Firmenname steht bereits im Logo, daher
   // dort keine große "brand"-Überschrift mehr nötig; und der Rechnungstitel
-  // selbst soll deutlich unauffälliger sein als bei KVAs.
-  docTitleCompact: { fontSize: 12, bold: true, margin: [0, 16, 0, 8] },
+  // selbst soll deutlich unauffälliger sein als bei KVAs. Der Abstand wird
+  // bewusst nicht hier, sondern einheitlich am Aufrufer gesetzt (siehe GAP
+  // in rechnungPdf.ts), damit alle Abstände zwischen Textblöcken gleich sind.
+  docTitleCompact: { fontSize: 12, bold: true },
   label: { fontSize: 8, color: '#666666' },
   small: { fontSize: 8, color: '#666666' },
   tableHeader: { bold: true, fontSize: 9, fillColor: '#eeeeee' },
@@ -23,20 +25,22 @@ export const pdfStyles: Record<string, Style> = {
   sectionTitle: { fontSize: 12, bold: true, margin: [0, 16, 0, 6] },
 }
 
-// `compactName`: wenn true, wird der Firmenname in der gleichen Größe wie die
-// Adresse dargestellt statt groß/fett — sinnvoll, sobald ein Logo mit dem
-// Namen gezeigt wird (aktuell bei Rechnungen der Fall), damit der Name nicht
-// doppelt groß erscheint.
+// `compactName`: wenn true, wird der ganze Absenderblock (Name + Adresse +
+// Kontakt) einheitlich in "cell"-Größe dargestellt statt Name groß/fett —
+// sinnvoll, sobald ein Logo mit dem Namen gezeigt wird (aktuell bei
+// Rechnungen der Fall). Zusätzlich sorgt das dafür, dass Absender- und
+// Empfängeradresse auf der Rechnung exakt gleich groß erscheinen.
 export function absenderBlock(stammdaten: Stammdaten, logoDataUrl?: string, compactName = false): Content {
   const stack: Content[] = []
   if (logoDataUrl) {
     stack.push({ image: logoDataUrl, width: 120, margin: [0, 0, 0, 8] })
   }
+  const lineStyle = compactName ? 'cell' : 'small'
   stack.push(
-    { text: stammdaten.name || 'Absender', style: compactName ? 'small' : 'brand' },
-    { text: stammdaten.adresse || '', style: 'small' },
-    { text: [stammdaten.telefon, stammdaten.email].filter(Boolean).join(' · '), style: 'small' },
-    { text: stammdaten.website || '', style: 'small' },
+    { text: stammdaten.name || 'Absender', style: compactName ? 'cell' : 'brand' },
+    { text: stammdaten.adresse || '', style: lineStyle },
+    { text: [stammdaten.telefon, stammdaten.email].filter(Boolean).join(' · '), style: lineStyle },
+    { text: stammdaten.website || '', style: lineStyle },
   )
   return { stack }
 }

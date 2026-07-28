@@ -17,31 +17,38 @@ export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdate
     cell(formatEuro(p.menge * p.einzelpreis), { style: 'cell', alignment: 'right' }),
   ])
 
+  // Einheitlicher Abstand vor jedem neuen Textblock, damit die Rechnung
+  // durchgehend gleichmäßig wirkt statt mit unterschiedlich großen Lücken.
+  const GAP: [number, number, number, number] = [0, 16, 0, 0]
+
   const content: Content[] = [
     absenderBlock(stammdaten, logoDataUrl, true),
     // Empfängeradresse: früher stand hier zusätzlich eine verkleinerte
     // Absenderzeile plus das Label "Rechnungsanschrift" darüber — wirkte
     // wie eine doppelte Adresse, da der Absender ja bereits vollständig
-    // oben steht. Jetzt nur noch die reine Anschrift, ohne Beschriftung.
-    { text: rechnung.rechnungsanschrift, style: 'cell', margin: [0, 12, 0, 0] },
+    // oben steht. Jetzt nur noch die reine Anschrift, ohne Beschriftung,
+    // und in der gleichen Größe wie der Absenderblock.
+    { text: rechnung.rechnungsanschrift, style: 'cell', margin: GAP },
     {
       text: `Rechnung Nr. ${rechnung.rechnungsnummer} vom ${formatDate(rechnung.erstelltAm.slice(0, 10))}`,
       style: 'docTitleCompact',
+      margin: GAP,
     },
+    // Fälligkeitsdatum, Bestellnummer und Leistungszeitraum stehen bewusst
+    // in einer einzigen Liste untereinander statt in zwei Spalten nebeneinander.
     {
-      columns: [
+      margin: GAP,
+      stack: [
         metaTable([
           ['Fälligkeitsdatum', formatDate(rechnung.faelligkeitsdatum)],
           ...(rechnung.bestellnummer.trim() ? ([['Bestellnummer', rechnung.bestellnummer]] as [string, string][]) : []),
-        ]),
-        metaTable([
           ['Leistungszeitraum von', formatDate(rechnung.leistungszeitraumVon)],
           ['Leistungszeitraum bis', formatDate(rechnung.leistungszeitraumBis)],
         ]),
       ],
     },
     {
-      margin: [0, 20, 0, 0],
+      margin: GAP,
       table: {
         headerRows: 1,
         widths: ['*', 30, 40, 60, 60],
@@ -58,7 +65,7 @@ export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdate
       },
     },
     {
-      margin: [0, 12, 0, 0],
+      margin: GAP,
       columns: [
         { width: '*', text: '' },
         {
@@ -84,17 +91,17 @@ export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdate
 
   if (rechnung.lieferanschrift.trim()) {
     content.splice(2, 0, {
-      margin: [0, 4, 0, 0],
+      margin: GAP,
       stack: [{ text: 'Lieferanschrift', style: 'label' }, { text: rechnung.lieferanschrift, style: 'cell' }],
     })
   }
 
   if (stammdaten.rechnungAbschlusstext.trim()) {
-    content.push({ text: stammdaten.rechnungAbschlusstext, style: 'small', margin: [0, 20, 0, 4] })
+    content.push({ text: stammdaten.rechnungAbschlusstext, style: 'small', margin: GAP })
   }
 
   if (stammdaten.zahlungsbedingungen.trim()) {
-    content.push({ text: stammdaten.zahlungsbedingungen, style: 'small', margin: [0, 0, 0, 0] })
+    content.push({ text: stammdaten.zahlungsbedingungen, style: 'small', margin: GAP })
   }
 
   return {
