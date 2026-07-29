@@ -20,7 +20,7 @@
   --yellow: #e8d05a;
   --green: #6bcf8f;
   --radius: 16px;
-  --global-header-h: 44px;
+  --global-header-h: 52px;
   --s1: 4px;
   --s2: 8px;
   --s3: 12px;
@@ -116,13 +116,18 @@ a {
   z-index: 12;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--s1);
+  justify-content: space-between;
   height: var(--global-header-h);
-  padding: 0 var(--s4);
+  padding: 0 var(--s2);
   background: rgba(10, 10, 10, 0.92);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
+}
+
+.global-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
 }
 
 .header-icon-btn {
@@ -130,28 +135,28 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: none;
   border: none;
   color: var(--text);
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   text-decoration: none;
 }
 
 .header-badge {
   position: absolute;
-  top: 0;
-  right: 0;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
+  top: 4px;
+  right: 4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
   border-radius: 999px;
   background: var(--bad);
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;

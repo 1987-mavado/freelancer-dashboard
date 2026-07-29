@@ -43,14 +43,16 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <div className="global-header">
-        <FokusmusikHeaderToggle />
-        <Link to="/deadlines" className="header-icon-btn" aria-label="Deadlines">
-          <ClockIcon />
-          {!!deadlinesCount && deadlinesCount > 0 && <span className="header-badge">{deadlinesCount}</span>}
-        </Link>
         <button type="button" className="header-icon-btn" onClick={handleLogout} aria-label="Abmelden">
           ⏻
         </button>
+        <div className="global-header-right">
+          <FokusmusikHeaderToggle />
+          <Link to="/deadlines" className="header-icon-btn" aria-label="Deadlines">
+            <ClockIcon />
+            {!!deadlinesCount && deadlinesCount > 0 && <span className="header-badge">{deadlinesCount}</span>}
+          </Link>
+        </div>
       </div>
       <div className="app-content">
         <Outlet />
