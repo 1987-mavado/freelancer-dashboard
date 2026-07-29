@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AuthGate from './auth/AuthGate'
+import { TimerProvider } from './timer/TimerContext'
 import AppShell from './layout/AppShell'
 import Dashboard from './pages/Dashboard'
 import Stammdaten from './pages/Stammdaten'
@@ -21,36 +22,40 @@ import ZeiterfassungPage from './pages/zeiterfassung/ZeiterfassungPage'
 import StatistikenPage from './pages/statistiken/StatistikenPage'
 import JahresuebersichtPage from './pages/steuer/JahresuebersichtPage'
 import AusgabenList from './pages/ausgaben/AusgabenList'
+import RessourcenPage from './pages/ressourcen/RessourcenPage'
 
 function App() {
   return (
     <AuthGate>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/stammdaten" element={<Stammdaten />} />
-            <Route path="/agenturen" element={<AgenturenList />} />
-            <Route path="/agenturen/:id" element={<AgenturDetail />} />
-            <Route path="/kunden" element={<KundenList />} />
-            <Route path="/kunden/:id" element={<KundeDetail />} />
-            <Route path="/projekte" element={<ProjekteList />} />
-            <Route path="/projekte/:id" element={<ProjektDetail />} />
-            <Route path="/bewerbungen" element={<BewerbungenList />} />
-            <Route path="/bewerbungen/:id" element={<BewerbungDetail />} />
-            <Route path="/kva" element={<KvaList />} />
-            <Route path="/kva/:id" element={<KvaDetail />} />
-            <Route path="/rechnungen" element={<RechnungenList />} />
-            <Route path="/rechnungen/:id" element={<RechnungDetail />} />
-            <Route path="/deadlines" element={<DeadlinesList />} />
-            <Route path="/fokus" element={<FokusPage />} />
-            <Route path="/zeit" element={<ZeiterfassungPage />} />
-            <Route path="/statistiken" element={<StatistikenPage />} />
-            <Route path="/jahresuebersicht" element={<JahresuebersichtPage />} />
-            <Route path="/ausgaben" element={<AusgabenList />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <TimerProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppShell />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/stammdaten" element={<Stammdaten />} />
+              <Route path="/agenturen" element={<AgenturenList />} />
+              <Route path="/agenturen/:id" element={<AgenturDetail />} />
+              <Route path="/kunden" element={<KundenList />} />
+              <Route path="/kunden/:id" element={<KundeDetail />} />
+              <Route path="/projekte" element={<ProjekteList />} />
+              <Route path="/projekte/:id" element={<ProjektDetail />} />
+              <Route path="/bewerbungen" element={<BewerbungenList />} />
+              <Route path="/bewerbungen/:id" element={<BewerbungDetail />} />
+              <Route path="/kva" element={<KvaList />} />
+              <Route path="/kva/:id" element={<KvaDetail />} />
+              <Route path="/rechnungen" element={<RechnungenList />} />
+              <Route path="/rechnungen/:id" element={<RechnungDetail />} />
+              <Route path="/deadlines" element={<DeadlinesList />} />
+              <Route path="/fokus" element={<FokusPage />} />
+              <Route path="/zeit" element={<ZeiterfassungPage />} />
+              <Route path="/statistiken" element={<StatistikenPage />} />
+              <Route path="/jahresuebersicht" element={<JahresuebersichtPage />} />
+              <Route path="/ausgaben" element={<AusgabenList />} />
+              <Route path="/ressourcen" element={<RessourcenPage />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </TimerProvider>
     </AuthGate>
   )
 }

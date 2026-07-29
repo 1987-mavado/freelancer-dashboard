@@ -5,8 +5,9 @@ import { todayISO } from './format'
 // Startet einen neuen Timer. Der Aufrufer muss vorher sicherstellen, dass
 // aktuell kein anderer Timer läuft (nur einer gleichzeitig, siehe
 // `zeiteintraege_only_one_running_idx` in der Migration, die das zusätzlich
-// serverseitig absichert).
-export async function starteTimer(projektId: number, rolle: string): Promise<number> {
+// serverseitig absichert). `todoId` verknüpft den Eintrag optional mit einer
+// Stundentool-Aufgabe (siehe TimerContext).
+export async function starteTimer(projektId: number, rolle: string, todoId: number | null = null): Promise<number> {
   const eintrag: Zeiteintrag = {
     projektId,
     rolle,
@@ -16,9 +17,16 @@ export async function starteTimer(projektId: number, rolle: string): Promise<num
     laeuft: true,
     beschreibung: '',
     abgerechnet: false,
+    todoId,
     erstelltAm: new Date().toISOString(),
   }
   return zeiteintraegeRepo.add(eintrag)
+}
+
+// Summe der bereits erfassten Minuten für eine einzelne Stundentool-Aufgabe
+// (kumulierte Stundenzahl der Aufgabe, siehe ToDo/Zeiteintrag-Verknüpfung).
+export function kumulierteMinutenFuerTodo(zeiteintraege: Zeiteintrag[], todoId: number): number {
+  return zeiteintraege.filter((z) => z.todoId === todoId).reduce((sum, z) => sum + z.dauerMinuten, 0)
 }
 
 // Stoppt einen laufenden Timer und berechnet die Dauer aus der verstrichenen
@@ -66,17 +74,24 @@ export function montagDerWoche(datumISO: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-// Summiert die erfassten Stunden (dauerMinuten) aller Zeiteinträge, deren
-// `datum` in dieselbe Kalenderwoche (Montag–Sonntag) fällt wie `referenzDatum`
-// (Standard: heute). Läuft ein Timer gerade noch (dauerMinuten noch 0), zählt
-// er hier bewusst nicht mit — erst nach dem Stoppen.
-export function wochenstunden(zeiteintraege: Zeiteintrag[], referenzDatum: string = todayISO()): number {
-  const montag = montagDerWoche(referenzDatum)
-  const sonntagDate = new Date(`${montag}T00:00:00`)
-  sonntagDate.setDate(sonntagDate.getDate() + 6)
-  const sonntag = sonntagDate.toISOString().slice(0, 10)
+// Summiert die erfassten Stunden (dauerMinuten) aller Zeiteinträge eines
+// einzelnen Tages (`referenzDatum`, Standard: heute), über alle Kunden/
+// Projekte hinweg — Basis für den Auslastungs-Warner. Läuft ein Timer gerade
+// noch (dauerMinuten noch 0), zählt er hier bewusst nicht mit — erst nach dem
+// Stoppen.
+export function tagesstunden(zeiteintraege: Zeiteintrag[], referenzDatum: string = todayISO()): number {
   const minuten = zeiteintraege
-    .filter((z) => z.datum >= montag && z.datum <= sonntag)
+    .filter((z) => z.datum === referenzDatum)
     .reduce((sum, z) => sum + z.dauerMinuten, 0)
   return minutenZuStunden(minuten)
+}
+
+export type AuslastungsStufe = 'normal' | 'gelb' | 'rot'
+
+// Feste Schwellen für den Auslastungs-Warner: bis 10h/Tag normal (8h gelten
+// als üblicher Arbeitstag), über 10h Gelb, über 12h Rot.
+export function auslastungsStufe(stunden: number): AuslastungsStufe {
+  if (stunden > 12) return 'rot'
+  if (stunden > 10) return 'gelb'
+  return 'normal'
 }

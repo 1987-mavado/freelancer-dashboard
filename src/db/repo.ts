@@ -57,11 +57,10 @@ const STAMMDATEN_DEFAULTS: Stammdaten = {
   zahlungsbedingungen: '14 Tage netto',
   logoUrl: '',
   rechnungAbschlusstext:
-    'Vielen Dank für die gute Zusammenarbeit! Bitte überweisen Sie den Rechnungsbetrag unter Angabe der Rechnungsnummer bis zum genannten Fälligkeitsdatum auf das unten angegebene Konto.',
+    'Vielen Dank für die Zusammenarbeit.\nTerms of payment: Payment is due 14 days after receipt of invoice.\nBitte überweisen Sie den Rechnungsbetrag unter Angabe der Rechnungsnummer auf das unten angegebene Konto.\nDer Rechnungsbetrag ist bis 14 Tage nach Rechnungseingang fällig.\nMit freundlichen Grüßen\nMarkus Kriesmair',
   googleClientId: '',
   googleCalendarId: 'primary',
   googleLastSyncedAt: '',
-  wochenkapazitaetStunden: 30,
 }
 
 // Stammdaten sind eine Singleton-Zeile (id=1). Die SQL-Migration legt sie

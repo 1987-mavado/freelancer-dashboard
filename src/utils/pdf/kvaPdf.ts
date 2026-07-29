@@ -3,9 +3,9 @@ import type { Kva, Projekt, Ratecard, Stammdaten } from '../../db/types'
 import { formatEuro, formatDate } from '../format'
 import { computeKva, rateFor } from '../kva'
 import { downloadPdf } from './setup'
-import { absenderBlock, absenderZeile, cell, footerBlock, metaTable, pdfStyles } from './shared'
+import { absenderBlock, absenderZeile, cell, fetchLogoDataUrl, footerBlock, metaTable, pdfStyles } from './shared'
 
-export function buildKvaPdf(
+export async function buildKvaPdf(
   kva: Kva,
   ratecard: Ratecard | undefined,
   projekt: Projekt | undefined,
@@ -13,6 +13,7 @@ export function buildKvaPdf(
   stammdaten: Stammdaten,
 ) {
   const computed = computeKva(kva, ratecard)
+  const logoDataUrl = await fetchLogoDataUrl(stammdaten.logoUrl)
 
   const phasenContent: Content[] = kva.phasen.flatMap((phase): Content[] => [
     { text: phase.bezeichnung || '(ohne Titel)', style: 'sectionTitle' },
@@ -45,7 +46,7 @@ export function buildKvaPdf(
   const content: Content[] = [
     {
       columns: [
-        absenderBlock(stammdaten),
+        absenderBlock(stammdaten, logoDataUrl),
         {
           width: 'auto',
           stack: [
@@ -123,5 +124,5 @@ export async function exportKvaPdf(
   stammdaten: Stammdaten,
 ) {
   const filename = `KVA-${(kva.bezeichnung || 'unbenannt').replace(/[^\w-]+/g, '_')}.pdf`
-  await downloadPdf(buildKvaPdf(kva, ratecard, projekt, kundeName, stammdaten), filename)
+  await downloadPdf(await buildKvaPdf(kva, ratecard, projekt, kundeName, stammdaten), filename)
 }

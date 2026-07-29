@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { zeiteintraegeRepo, projekteRepo, ratecardsRepo } from '../../db/repo'
+import { useTimerContext } from '../../timer/TimerContext'
 import PageHeader from '../../layout/PageHeader'
 import { formatDate, todayISO } from '../../utils/format'
-import { starteTimer, stoppeTimer, formatDauer, formatVerstrichen } from '../../utils/zeiterfassung'
+import { formatDauer, formatVerstrichen } from '../../utils/zeiterfassung'
+import type { Zeiteintrag } from '../../db/types'
 
 interface ManualForm {
   projektId: number | ''
@@ -17,7 +20,18 @@ function emptyManual(): ManualForm {
   return { projektId: '', rolle: '', datum: todayISO(), stunden: '', beschreibung: '' }
 }
 
+function toEditForm(z: Zeiteintrag): ManualForm {
+  return {
+    projektId: z.projektId,
+    rolle: z.rolle,
+    datum: z.datum,
+    stunden: String(Math.round((z.dauerMinuten / 60) * 100) / 100),
+    beschreibung: z.beschreibung,
+  }
+}
+
 export default function ZeiterfassungPage() {
+  const timer = useTimerContext()
   const zeiteintraege = useSupabaseQuery(
     ['zeiteintraege'],
     async () => {
@@ -32,25 +46,10 @@ export default function ZeiterfassungPage() {
   const projekte = useSupabaseQuery(['projekte'], () => projekteRepo.list(), [])
   const ratecards = useSupabaseQuery(['ratecards'], () => ratecardsRepo.list(), [])
 
-  const laufender = zeiteintraege?.find((z) => z.laeuft)
-
-  const [timerProjektId, setTimerProjektId] = useState<number | ''>('')
-  const [timerRolle, setTimerRolle] = useState('')
-  const [starting, setStarting] = useState(false)
-  const [stopping, setStopping] = useState(false)
-
   const [manualOpen, setManualOpen] = useState(false)
   const [manual, setManual] = useState<ManualForm>(emptyManual())
-
-  // Erzwingt jede Sekunde ein Re-Render, solange ein Timer läuft, damit die
-  // Live-Anzeige (formatVerstrichen) hochzählt — der Wert selbst wird bei
-  // jedem Render direkt aus `startZeit` neu berechnet, nicht aus diesem State.
-  const [, forceTick] = useState(0)
-  useEffect(() => {
-    if (!laufender) return
-    const iv = window.setInterval(() => forceTick((t) => t + 1), 1000)
-    return () => clearInterval(iv)
-  }, [laufender])
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState<ManualForm>(emptyManual())
 
   function projektName(id?: number) {
     return projekte?.find((p) => p.id === id)?.name ?? '–'
@@ -61,28 +60,6 @@ export default function ZeiterfassungPage() {
     if (!projekt?.agenturId) return []
     const zeilen = (ratecards ?? []).filter((r) => r.agenturId === projekt.agenturId).flatMap((r) => r.zeilen)
     return Array.from(new Set(zeilen.map((z) => z.rolle))).filter(Boolean)
-  }
-
-  async function handleStart() {
-    if (!timerProjektId || !timerRolle.trim()) return
-    setStarting(true)
-    try {
-      await starteTimer(timerProjektId, timerRolle.trim())
-      setTimerProjektId('')
-      setTimerRolle('')
-    } finally {
-      setStarting(false)
-    }
-  }
-
-  async function handleStop() {
-    if (!laufender) return
-    setStopping(true)
-    try {
-      await stoppeTimer(laufender)
-    } finally {
-      setStopping(false)
-    }
   }
 
   async function handleManualAdd() {
@@ -97,10 +74,29 @@ export default function ZeiterfassungPage() {
       laeuft: false,
       beschreibung: manual.beschreibung.trim(),
       abgerechnet: false,
+      todoId: null,
       erstelltAm: new Date().toISOString(),
     })
     setManual(emptyManual())
     setManualOpen(false)
+  }
+
+  function startEdit(z: Zeiteintrag) {
+    setEditingId(z.id ?? null)
+    setEditForm(toEditForm(z))
+  }
+
+  async function saveEdit(id: number) {
+    const stunden = parseFloat(editForm.stunden.replace(',', '.'))
+    if (!editForm.projektId || !editForm.rolle.trim() || !stunden || stunden <= 0) return
+    await zeiteintraegeRepo.update(id, {
+      projektId: editForm.projektId,
+      rolle: editForm.rolle.trim(),
+      datum: editForm.datum,
+      dauerMinuten: Math.round(stunden * 60),
+      beschreibung: editForm.beschreibung.trim(),
+    })
+    setEditingId(null)
   }
 
   async function handleDelete(id?: number) {
@@ -109,10 +105,6 @@ export default function ZeiterfassungPage() {
     await zeiteintraegeRepo.remove(id)
   }
 
-  const elapsedSeconds = laufender?.startZeit
-    ? Math.floor((Date.now() - new Date(laufender.startZeit).getTime()) / 1000)
-    : 0
-
   const abgeschlosseneEintraege = zeiteintraege?.filter((z) => !z.laeuft) ?? []
 
   return (
@@ -120,78 +112,152 @@ export default function ZeiterfassungPage() {
       <PageHeader title="Zeiterfassung" back={false} />
 
       <div className="card">
-        {laufender ? (
+        {timer.phase !== 'idle' ? (
           <>
             <div className="timer-mode">
-              Läuft · {projektName(laufender.projektId)} · {laufender.rolle}
+              {timer.phase === 'arbeit' && `Läuft · ${timer.laufendesTodo?.text ?? ''}`}
+              {timer.phase === 'pause-bereit' && 'Aufgabe beendet · Pause bereit'}
+              {timer.phase === 'pause-laeuft' && 'Pause läuft'}
             </div>
-            <div className="timer-display">{formatVerstrichen(elapsedSeconds)}</div>
+            {timer.phase === 'arbeit' && (
+              <div className="timer-display">{formatVerstrichen(Math.max(0, timer.restSekundenArbeit))}</div>
+            )}
+            {timer.phase === 'pause-laeuft' && (
+              <div className="timer-display">{formatVerstrichen(Math.max(0, timer.restSekundenPause))}</div>
+            )}
             <div className="row">
-              <button className="btn" onClick={handleStop} disabled={stopping}>
-                {stopping ? 'Wird gestoppt…' : 'Stoppen'}
-              </button>
+              {timer.phase === 'arbeit' && (
+                <button className="btn" onClick={timer.stopManuell}>
+                  Stoppen
+                </button>
+              )}
+              {timer.phase === 'pause-bereit' && (
+                <button className="btn" onClick={timer.startPause}>
+                  5-Min-Pause starten
+                </button>
+              )}
+              {timer.phase === 'pause-laeuft' && (
+                <button className="btn ghost" onClick={timer.pauseUeberspringen}>
+                  Pause beenden
+                </button>
+              )}
             </div>
           </>
         ) : (
           <div className="stack">
-            <div>
-              <label>Projekt</label>
-              <select
-                className="field"
-                value={timerProjektId}
-                onChange={(e) => setTimerProjektId(e.target.value ? Number(e.target.value) : '')}
-              >
-                <option value="">– auswählen –</option>
-                {projekte?.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label>Rolle</label>
-              <input
-                className="field"
-                list="timer-rollen"
-                value={timerRolle}
-                onChange={(e) => setTimerRolle(e.target.value)}
-                placeholder="z.B. Creative Director"
-              />
-              <datalist id="timer-rollen">
-                {rollenOptionen(timerProjektId).map((r) => (
-                  <option key={r} value={r} />
-                ))}
-              </datalist>
-            </div>
-            <button className="btn full" onClick={handleStart} disabled={starting}>
-              {starting ? 'Wird gestartet…' : 'Timer starten'}
-            </button>
+            <p className="muted" style={{ margin: 0 }}>
+              Timer werden über eine Aufgabe mit Projekt, Rolle und geschätzter Zeit gestartet.
+            </p>
+            <Link to="/fokus" className="btn ghost full" style={{ textAlign: 'center' }}>
+              Zu Fokus &amp; To-Do
+            </Link>
           </div>
         )}
       </div>
 
       <div className="section-title">Einträge</div>
       <div className="list">
-        {abgeschlosseneEintraege.map((z) => (
-          <div key={z.id} className="list-item" style={{ cursor: 'default' }}>
-            <div>
-              <div className="list-title">
-                {projektName(z.projektId)} · {z.rolle}
+        {abgeschlosseneEintraege.map((z) => {
+          if (editingId === z.id) {
+            return (
+              <div key={z.id} className="card stack">
+                <div className="row">
+                  <div>
+                    <label>Projekt</label>
+                    <select
+                      className="field"
+                      value={editForm.projektId}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, projektId: e.target.value ? Number(e.target.value) : '' }))
+                      }
+                    >
+                      <option value="">– auswählen –</option>
+                      {projekte?.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Rolle</label>
+                    <input
+                      className="field"
+                      list="zeit-edit-rollen"
+                      value={editForm.rolle}
+                      onChange={(e) => setEditForm((f) => ({ ...f, rolle: e.target.value }))}
+                    />
+                    <datalist id="zeit-edit-rollen">
+                      {rollenOptionen(editForm.projektId).map((r) => (
+                        <option key={r} value={r} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+                <div className="row">
+                  <div>
+                    <label>Datum</label>
+                    <input
+                      className="field"
+                      type="date"
+                      value={editForm.datum}
+                      onChange={(e) => setEditForm((f) => ({ ...f, datum: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label>Dauer (Stunden)</label>
+                    <input
+                      className="field"
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      value={editForm.stunden}
+                      onChange={(e) => setEditForm((f) => ({ ...f, stunden: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label>Beschreibung (optional)</label>
+                  <input
+                    className="field"
+                    value={editForm.beschreibung}
+                    onChange={(e) => setEditForm((f) => ({ ...f, beschreibung: e.target.value }))}
+                  />
+                </div>
+                <div className="row">
+                  <button className="btn ghost" onClick={() => setEditingId(null)}>
+                    Abbrechen
+                  </button>
+                  <button className="btn" onClick={() => z.id && saveEdit(z.id)}>
+                    Speichern
+                  </button>
+                </div>
               </div>
-              <div className="list-sub">
-                {formatDate(z.datum)} · {formatDauer(z.dauerMinuten)}
-                {z.beschreibung ? ` · ${z.beschreibung}` : ''}
+            )
+          }
+          return (
+            <div key={z.id} className="list-item" style={{ cursor: 'default' }}>
+              <div>
+                <div className="list-title">
+                  {projektName(z.projektId)} · {z.rolle}
+                </div>
+                <div className="list-sub">
+                  {formatDate(z.datum)} · {formatDauer(z.dauerMinuten)}
+                  {z.beschreibung ? ` · ${z.beschreibung}` : ''}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
+                <span className="status-pill">{z.abgerechnet ? 'Abgerechnet' : 'Offen'}</span>
+                <button className="icon-btn" onClick={() => startEdit(z)} aria-label="Bearbeiten">
+                  ✎
+                </button>
+                <button className="icon-btn" onClick={() => handleDelete(z.id)} aria-label="Löschen">
+                  ✕
+                </button>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
-              <span className="status-pill">{z.abgerechnet ? 'Abgerechnet' : 'Offen'}</span>
-              <button className="icon-btn" onClick={() => handleDelete(z.id)} aria-label="Löschen">
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
         {abgeschlosseneEintraege.length === 0 && <div className="empty">Noch keine Zeiteinträge erfasst.</div>}
       </div>
 

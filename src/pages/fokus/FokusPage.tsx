@@ -1,58 +1,38 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
-import { todosRepo } from '../../db/repo'
+import { todosRepo, projekteRepo, ratecardsRepo, zeiteintraegeRepo } from '../../db/repo'
+import { useTimerContext } from '../../timer/TimerContext'
+import { kumulierteMinutenFuerTodo, formatDauer } from '../../utils/zeiterfassung'
+import { formatDate } from '../../utils/format'
+import type { ToDo } from '../../db/types'
 import PageHeader from '../../layout/PageHeader'
 import GoogleCalendarWidget from './GoogleCalendarWidget'
+import FokusmusikToggle from './FokusmusikToggle'
 
-const FOCUS_SECONDS = 25 * 60
-const BREAK_SECONDS = 5 * 60
-
-function useTimer() {
-  const [mode, setMode] = useState<'focus' | 'break'>('focus')
-  const [secondsLeft, setSecondsLeft] = useState(FOCUS_SECONDS)
-  const [running, setRunning] = useState(false)
-  const [rounds, setRounds] = useState(0)
-  const intervalRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    if (running) {
-      intervalRef.current = window.setInterval(() => {
-        setSecondsLeft((s) => {
-          if (s <= 1) {
-            const nextMode = mode === 'focus' ? 'break' : 'focus'
-            if (mode === 'focus') setRounds((r) => r + 1)
-            setMode(nextMode)
-            return nextMode === 'focus' ? FOCUS_SECONDS : BREAK_SECONDS
-          }
-          return s - 1
-        })
-      }, 1000)
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [running, mode])
-
-  function reset() {
-    setRunning(false)
-    setMode('focus')
-    setSecondsLeft(FOCUS_SECONDS)
-    setRounds(0)
-  }
-
-  return { mode, secondsLeft, running, setRunning, rounds, reset }
+interface EditForm {
+  text: string
+  projektId: number | ''
+  rolle: string
+  geschaetzteMinuten: string
+  faelligkeitsdatum: string
 }
 
-function formatTime(s: number) {
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`
+function toEditForm(t: ToDo): EditForm {
+  return {
+    text: t.text,
+    projektId: t.projektId ?? '',
+    rolle: t.rolle,
+    geschaetzteMinuten: t.geschaetzteMinuten ? String(t.geschaetzteMinuten) : '',
+    faelligkeitsdatum: t.faelligkeitsdatum,
+  }
+}
+
+function emptyEditForm(): EditForm {
+  return { text: '', projektId: '', rolle: '', geschaetzteMinuten: '', faelligkeitsdatum: '' }
 }
 
 export default function FokusPage() {
-  const { mode, secondsLeft, running, setRunning, rounds, reset } = useTimer()
+  const timer = useTimerContext()
   const todos = useSupabaseQuery(
     ['todos'],
     async () => {
@@ -63,12 +43,55 @@ export default function FokusPage() {
     },
     [],
   )
-  const [text, setText] = useState('')
+  const projekte = useSupabaseQuery(['projekte'], () => projekteRepo.list(), [])
+  const ratecards = useSupabaseQuery(['ratecards'], () => ratecardsRepo.list(), [])
+  const zeiteintraege = useSupabaseQuery(['zeiteintraege'], () => zeiteintraegeRepo.list(), [])
+
+  const [addOpen, setAddOpen] = useState(false)
+  const [addForm, setAddForm] = useState<EditForm>(emptyEditForm())
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState<EditForm>(emptyEditForm())
+
+  function projektName(id?: number | null) {
+    return projekte?.find((p) => p.id === id)?.name ?? '–'
+  }
+
+  function rollenOptionen(projektId: number | '') {
+    const projekt = projekte?.find((p) => p.id === projektId)
+    if (!projekt?.agenturId) return []
+    const zeilen = (ratecards ?? []).filter((r) => r.agenturId === projekt.agenturId).flatMap((r) => r.zeilen)
+    return Array.from(new Set(zeilen.map((z) => z.rolle))).filter(Boolean)
+  }
 
   async function addTodo() {
-    if (!text.trim()) return
-    await todosRepo.add({ text: text.trim(), erledigt: false, erstelltAm: new Date().toISOString() })
-    setText('')
+    if (!addForm.text.trim()) return
+    await todosRepo.add({
+      text: addForm.text.trim(),
+      erledigt: false,
+      projektId: addForm.projektId || null,
+      rolle: addForm.rolle.trim(),
+      geschaetzteMinuten: addForm.geschaetzteMinuten ? Math.round(Number(addForm.geschaetzteMinuten)) : 0,
+      faelligkeitsdatum: addForm.faelligkeitsdatum,
+      erstelltAm: new Date().toISOString(),
+    })
+    setAddForm(emptyEditForm())
+    setAddOpen(false)
+  }
+
+  function startEdit(t: ToDo) {
+    setEditingId(t.id ?? null)
+    setEditForm(toEditForm(t))
+  }
+
+  async function saveEdit(id: number) {
+    await todosRepo.update(id, {
+      text: editForm.text.trim(),
+      projektId: editForm.projektId || null,
+      rolle: editForm.rolle.trim(),
+      geschaetzteMinuten: editForm.geschaetzteMinuten ? Math.round(Number(editForm.geschaetzteMinuten)) : 0,
+      faelligkeitsdatum: editForm.faelligkeitsdatum,
+    })
+    setEditingId(null)
   }
 
   async function toggleTodo(id?: number, erledigt?: boolean) {
@@ -83,50 +106,241 @@ export default function FokusPage() {
 
   return (
     <div>
-      <PageHeader title="Fokus &amp; To-Do" back={false} />
-
-      <div className="card">
-        <div className="timer-mode">{mode === 'focus' ? 'Fokus' : 'Pause'} · Runde {rounds}</div>
-        <div className="timer-display">{formatTime(secondsLeft)}</div>
-        <div className="row">
-          <button className="btn" onClick={() => setRunning((r) => !r)}>
-            {running ? 'Pause' : 'Start'}
-          </button>
-          <button className="btn ghost" onClick={reset}>
-            Zurücksetzen
-          </button>
-        </div>
-      </div>
+      <PageHeader title="Fokus &amp; To-Do" back={false} action={<FokusmusikToggle />} />
 
       <GoogleCalendarWidget />
 
-      <div className="section-title">To-Do</div>
-      <div className="row" style={{ marginBottom: 'var(--s3)' }}>
-        <input
-          className="field"
-          placeholder="Neue Aufgabe…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addTodo()}
-        />
-        <button className="btn" style={{ flex: 'none' }} onClick={addTodo}>
-          +
-        </button>
-      </div>
+      <div className="section-title">Aufgaben</div>
+      <p className="muted">
+        Aufgabe mit Projekt, Rolle und geschätzter Zeit anlegen, dann per ▶ direkt den Timer starten — die
+        erfasste Zeit fließt automatisch in die Stundenzahl der Aufgabe und kann später in eine Rechnung
+        übernommen werden.
+      </p>
+
       <div className="list">
-        {todos?.map((t) => (
-          <div key={t.id} className="list-item" style={{ cursor: 'default' }}>
-            <div className="checkbox-row">
-              <input type="checkbox" checked={t.erledigt} onChange={() => toggleTodo(t.id, t.erledigt)} />
-              <span className={t.erledigt ? 'strikethrough' : ''}>{t.text}</span>
+        {todos?.map((t) => {
+          const istAktiv = timer.laufendesTodo?.id === t.id && timer.phase !== 'idle'
+          const kannStarten =
+            !t.erledigt && !!t.projektId && t.geschaetzteMinuten > 0 && timer.phase === 'idle' && !istAktiv
+          const kumuliert = t.id ? kumulierteMinutenFuerTodo(zeiteintraege ?? [], t.id) : 0
+          const wirdBearbeitet = editingId === t.id
+
+          if (wirdBearbeitet) {
+            return (
+              <div key={t.id} className="card stack">
+                <input
+                  className="field"
+                  value={editForm.text}
+                  onChange={(e) => setEditForm((f) => ({ ...f, text: e.target.value }))}
+                />
+                <div className="row">
+                  <div>
+                    <label>Projekt (optional, für Abrechnung)</label>
+                    <select
+                      className="field"
+                      value={editForm.projektId}
+                      onChange={(e) =>
+                        setEditForm((f) => ({ ...f, projektId: e.target.value ? Number(e.target.value) : '' }))
+                      }
+                    >
+                      <option value="">– kein Projekt –</option>
+                      {projekte?.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Rolle</label>
+                    <input
+                      className="field"
+                      list="fokus-rollen"
+                      value={editForm.rolle}
+                      onChange={(e) => setEditForm((f) => ({ ...f, rolle: e.target.value }))}
+                    />
+                    <datalist id="fokus-rollen">
+                      {rollenOptionen(editForm.projektId).map((r) => (
+                        <option key={r} value={r} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+                <div className="row">
+                  <div>
+                    <label>Geschätzte Zeit (Minuten)</label>
+                    <input
+                      className="field"
+                      type="number"
+                      min="0"
+                      step="5"
+                      value={editForm.geschaetzteMinuten}
+                      onChange={(e) => setEditForm((f) => ({ ...f, geschaetzteMinuten: e.target.value }))}
+                      placeholder="z.B. 25"
+                    />
+                  </div>
+                  <div>
+                    <label>Fällig am (optional, für Kalender)</label>
+                    <input
+                      className="field"
+                      type="date"
+                      value={editForm.faelligkeitsdatum}
+                      onChange={(e) => setEditForm((f) => ({ ...f, faelligkeitsdatum: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="row">
+                  <button className="btn ghost" onClick={() => setEditingId(null)}>
+                    Abbrechen
+                  </button>
+                  <button className="btn" onClick={() => t.id && saveEdit(t.id)}>
+                    Speichern
+                  </button>
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div
+              key={t.id}
+              className={`list-item${istAktiv && timer.phase !== 'arbeit' ? ' rot' : ''}`}
+              style={{ cursor: 'default', alignItems: 'flex-start' }}
+            >
+              <div className="checkbox-row" style={{ alignItems: 'flex-start' }}>
+                <input
+                  type="checkbox"
+                  checked={t.erledigt}
+                  disabled={istAktiv}
+                  onChange={() => toggleTodo(t.id, t.erledigt)}
+                />
+                <div>
+                  <div className={t.erledigt ? 'strikethrough' : ''}>{t.text}</div>
+                  <div className="list-sub">
+                    {t.projektId
+                      ? `${projektName(t.projektId)} · ${t.rolle || 'ohne Rolle'} · ${t.geschaetzteMinuten} Min. geschätzt`
+                      : 'Keine Abrechnung hinterlegt'}
+                    {kumuliert > 0 && ` · ${formatDauer(kumuliert)} erfasst`}
+                    {t.faelligkeitsdatum && ` · fällig ${formatDate(t.faelligkeitsdatum)}`}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+                {istAktiv ? (
+                  <span className="status-pill">
+                    {timer.phase === 'arbeit' ? 'Läuft…' : timer.phase === 'pause-bereit' ? 'Beendet' : 'Pause'}
+                  </span>
+                ) : (
+                  <>
+                    {kannStarten && (
+                      <button
+                        className="icon-btn"
+                        onClick={() => timer.start(t)}
+                        aria-label="Timer starten"
+                        title="Timer starten"
+                      >
+                        ▶
+                      </button>
+                    )}
+                    <button className="icon-btn" onClick={() => startEdit(t)} aria-label="Bearbeiten">
+                      ✎
+                    </button>
+                    <button className="icon-btn" onClick={() => deleteTodo(t.id)} aria-label="Löschen">
+                      ✕
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-            <button className="icon-btn" onClick={() => deleteTodo(t.id)} aria-label="Löschen">
-              ✕
-            </button>
-          </div>
-        ))}
+          )
+        })}
         {todos?.length === 0 && <div className="empty">Keine offenen Aufgaben.</div>}
       </div>
+
+      {addOpen && (
+        <div className="card stack">
+          <input
+            className="field"
+            placeholder="Neue Aufgabe…"
+            value={addForm.text}
+            onChange={(e) => setAddForm((f) => ({ ...f, text: e.target.value }))}
+          />
+          <div className="row">
+            <div>
+              <label>Projekt (optional, für Abrechnung)</label>
+              <select
+                className="field"
+                value={addForm.projektId}
+                onChange={(e) => setAddForm((f) => ({ ...f, projektId: e.target.value ? Number(e.target.value) : '' }))}
+              >
+                <option value="">– kein Projekt –</option>
+                {projekte?.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Rolle</label>
+              <input
+                className="field"
+                list="fokus-rollen-add"
+                value={addForm.rolle}
+                onChange={(e) => setAddForm((f) => ({ ...f, rolle: e.target.value }))}
+              />
+              <datalist id="fokus-rollen-add">
+                {rollenOptionen(addForm.projektId).map((r) => (
+                  <option key={r} value={r} />
+                ))}
+              </datalist>
+            </div>
+          </div>
+          <div className="row">
+            <div>
+              <label>Geschätzte Zeit (Minuten, für Play-Timer nötig)</label>
+              <input
+                className="field"
+                type="number"
+                min="0"
+                step="5"
+                value={addForm.geschaetzteMinuten}
+                onChange={(e) => setAddForm((f) => ({ ...f, geschaetzteMinuten: e.target.value }))}
+                placeholder="z.B. 25"
+              />
+            </div>
+            <div>
+              <label>Fällig am (optional, für Kalender)</label>
+              <input
+                className="field"
+                type="date"
+                value={addForm.faelligkeitsdatum}
+                onChange={(e) => setAddForm((f) => ({ ...f, faelligkeitsdatum: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="row">
+            <button
+              className="btn ghost"
+              onClick={() => {
+                setAddOpen(false)
+                setAddForm(emptyEditForm())
+              }}
+            >
+              Abbrechen
+            </button>
+            <button className="btn" onClick={addTodo}>
+              Anlegen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!addOpen && (
+        <button className="fab" onClick={() => setAddOpen(true)} aria-label="Aufgabe hinzufügen">
+          +
+        </button>
+      )}
     </div>
   )
 }

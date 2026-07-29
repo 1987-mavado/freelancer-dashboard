@@ -58,6 +58,7 @@ export function emptyRechnung(projektId: number, nummer: string): Rechnung {
     empfaengerOrt: '',
     empfaengerLand: 'DE',
     leitwegId: '',
+    taetigkeit: '',
     leistungszeitraumVon: todayISO(),
     leistungszeitraumBis: todayISO(),
     positionen: [],

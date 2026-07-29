@@ -1,4 +1,4 @@
-import type { Bewerbung, CalendarEntityTyp, Deadline, Kva, Projekt, Rechnung } from '../../db/types'
+import type { Bewerbung, CalendarEntityTyp, Deadline, Kva, Projekt, Rechnung, ToDo } from '../../db/types'
 import { rechnungTotals } from '../rechnung'
 import { formatEuro } from '../format'
 import type { CalendarEventDraft } from './api'
@@ -88,6 +88,19 @@ export function buildBewerbungTarget(bewerbung: Bewerbung): SyncTarget | null {
     description: bewerbung.notiz || undefined,
     start: { dateTime: toLocalDateTimeString(start), timeZone },
     end: { dateTime: toLocalDateTimeString(end), timeZone },
+  })
+}
+
+// To-Dos nur dann synchronisieren, wenn ein Fälligkeitsdatum gesetzt ist —
+// ohne Datum lässt sich kein Kalendereintrag anlegen.
+export function buildTodoTarget(todo: ToDo, projektName?: string): SyncTarget | null {
+  if (!todo.faelligkeitsdatum) return null
+  const date = toDateOnly(todo.faelligkeitsdatum)
+  return target('todo', todo.id!, {
+    summary: `To-Do: ${todo.text}`,
+    description: projektName ? `Projekt: ${projektName}` : undefined,
+    start: { date },
+    end: { date: addOneDay(date) },
   })
 }
 

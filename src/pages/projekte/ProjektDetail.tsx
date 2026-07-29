@@ -112,6 +112,7 @@ export default function ProjektDetail() {
             >
               <option value="akquise">Akquise</option>
               <option value="aktiv">Aktiv</option>
+              <option value="ressourcenplanung">Ressourcenplanung</option>
               <option value="pausiert">Pausiert</option>
               <option value="abgeschlossen">Abgeschlossen</option>
             </select>

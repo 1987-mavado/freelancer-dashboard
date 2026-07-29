@@ -30,7 +30,6 @@ const emptyForm: StammdatenType = {
   googleClientId: '',
   googleCalendarId: 'primary',
   googleLastSyncedAt: '',
-  wochenkapazitaetStunden: 30,
 }
 
 export default function Stammdaten() {
@@ -243,21 +242,10 @@ export default function Stammdaten() {
         </div>
 
         <div className="section-title">Auslastung</div>
-        <div>
-          <label>Wochenkapazität (Stunden)</label>
-          <input
-            className="field"
-            type="number"
-            min="0"
-            step="1"
-            value={form.wochenkapazitaetStunden}
-            onChange={(e) => set('wochenkapazitaetStunden', Number(e.target.value))}
-          />
-          <p className="muted">
-            Übersteigen deine in der Zeiterfassung erfassten Stunden in einer Kalenderwoche diesen Wert, erscheint
-            ein Hinweis auf der Startseite.
-          </p>
-        </div>
+        <p className="muted">
+          Der Auslastungs-Warner auf der Startseite summiert deine erfassten Stunden über alle Kunden/Projekte
+          eines Tages: bis 10 Std. normal, über 10 Std. Gelb, über 12 Std. Rot. Keine Einstellung nötig.
+        </p>
 
         <button className="btn full" onClick={handleSave}>
           {saved ? 'Gespeichert ✓' : 'Speichern'}
@@ -266,8 +254,8 @@ export default function Stammdaten() {
         <div className="section-title">Google Kalender</div>
         <p className="muted">
           Synchronisiert einseitig (App → Kalender): offene Deadlines, unbezahlte Rechnungs-Fälligkeitsdaten,
-          Projekt-Zeiträume und KVA-Erstelldaten. Erledigte/gelöschte Einträge werden im Kalender automatisch
-          entfernt.
+          Projekt-Zeiträume, KVA-Erstelldaten und To-Dos mit Fälligkeitsdatum. Erledigte/gelöschte Einträge
+          werden im Kalender automatisch entfernt.
         </p>
         <div>
           <label>Google Client-ID</label>

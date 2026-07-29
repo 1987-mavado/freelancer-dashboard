@@ -20,10 +20,6 @@ export interface Stammdaten {
   googleClientId: string
   googleCalendarId: string
   googleLastSyncedAt: string
-  // Für den Auslastungs-Warner: bei Überschreitung dieser Wochenstunden in
-  // der aktuellen Kalenderwoche (erfasst über die Zeiterfassung) erscheint
-  // ein Hinweis-Banner auf dem Dashboard.
-  wochenkapazitaetStunden: number
 }
 
 export interface Agentur {
@@ -53,7 +49,11 @@ export interface Kunde {
   agenturId?: number
 }
 
-export type ProjektStatus = 'akquise' | 'aktiv' | 'pausiert' | 'abgeschlossen'
+// "ressourcenplanung": Job-Pipeline-Zwischenstufe, sobald eine KVA für dieses
+// Projekt angenommen wurde — im Ressourcentool werden dort die tatsächlich
+// verbrauchten Stunden bestätigt, bevor das Projekt auf "abgeschlossen"
+// wechselt (und wie gewohnt automatisch eine Rechnung entsteht).
+export type ProjektStatus = 'akquise' | 'aktiv' | 'ressourcenplanung' | 'pausiert' | 'abgeschlossen'
 
 export interface Projekt {
   id?: number
@@ -98,12 +98,15 @@ export interface KvaPhase {
   zeilen: KvaZeile[]
 }
 
+export type KvaStatus = 'entwurf' | 'angenommen'
+
 export interface Kva {
   id?: number
   projektId: number
   ratecardId: number
   bezeichnung: string
   phasen: KvaPhase[]
+  status: KvaStatus
   erstelltAm: string
 }
 
@@ -130,6 +133,8 @@ export interface Rechnung {
   empfaengerOrt: string
   empfaengerLand: string
   leitwegId: string
+  // Für die Rechnungs-Überschrift "Rechnung – Nr – Kunde – Tätigkeit".
+  taetigkeit: string
   leistungszeitraumVon: string
   leistungszeitraumBis: string
   positionen: RechnungPosition[]
@@ -150,10 +155,22 @@ export interface Deadline {
   erledigt: boolean
 }
 
+// To-Do und Stundentool sind ein gemeinsames Feld: eine Aufgabe kann optional
+// mit einem Projekt/einer Rolle und einer geschätzten Zeit hinterlegt werden
+// — dann lässt sich direkt per Play-Icon ein Timer dafür starten (siehe
+// TimerContext), dessen erfasste Zeit als Zeiteintrag (mit `todoId`-Bezug)
+// in die Abrechnung einfließt. Ohne Projekt/Zeit bleibt es eine normale,
+// nicht abrechenbare Aufgabe.
 export interface ToDo {
   id?: number
   text: string
   erledigt: boolean
+  geschaetzteMinuten: number
+  projektId: number | null
+  rolle: string
+  // Optional, nur wenn gesetzt wird das To-Do in den Google-Kalender-Sync
+  // aufgenommen (Kalendereinträge brauchen ein Datum).
+  faelligkeitsdatum: string
   erstelltAm: string
 }
 
@@ -174,6 +191,9 @@ export interface Zeiteintrag {
   beschreibung: string
   abgerechnet: boolean
   rechnungId?: number | null
+  // Verknüpfung zum ToDo/Stundentool-Eintrag, falls über dessen Play-Icon
+  // gestartet — für die kumulierte Stundenzahl je Aufgabe.
+  todoId?: number | null
   erstelltAm: string
 }
 
@@ -206,7 +226,7 @@ export interface Ausgabe {
   erstelltAm: string
 }
 
-export type CalendarEntityTyp = 'deadline' | 'rechnung' | 'projekt' | 'kva' | 'bewerbung'
+export type CalendarEntityTyp = 'deadline' | 'rechnung' | 'projekt' | 'kva' | 'bewerbung' | 'todo'
 
 export interface CalendarSyncMap {
   id?: number

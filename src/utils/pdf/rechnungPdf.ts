@@ -1,13 +1,27 @@
 import type { Content, TableCell } from 'pdfmake'
 import type { Rechnung, Stammdaten } from '../../db/types'
+import { projekteRepo, kundenRepo } from '../../db/repo'
 import { formatEuro, formatDate } from '../format'
 import { rechnungTotals } from '../rechnung'
 import { downloadPdf } from './setup'
 import { absenderBlock, cell, fetchLogoDataUrl, footerBlock, metaTable, pdfStyles } from './shared'
 
+// Überschrift im Format "Rechnung – Nummer – Kunde – Tätigkeit". Kunde/
+// Tätigkeit werden weggelassen, falls nicht ermittelbar bzw. nicht ausgefüllt,
+// damit die Überschrift nie mit einem leeren " – " endet.
+async function rechnungTitel(rechnung: Rechnung): Promise<string> {
+  const projekt = await projekteRepo.get(rechnung.projektId)
+  const kunde = projekt ? await kundenRepo.get(projekt.kundeId) : undefined
+  const teile = [rechnung.rechnungsnummer, kunde?.name, rechnung.taetigkeit.trim()].filter(
+    (t): t is string => !!t && t.trim().length > 0,
+  )
+  return `Rechnung – ${teile.join(' – ')}`
+}
+
 export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdaten) {
   const { netto, ustBetrag, brutto } = rechnungTotals(rechnung.positionen, rechnung.ustSatz)
   const logoDataUrl = await fetchLogoDataUrl(stammdaten.logoUrl)
+  const titel = await rechnungTitel(rechnung)
 
   const positionenRows: TableCell[][] = rechnung.positionen.map((p) => [
     cell(p.beschreibung, { style: 'cell' }),
@@ -30,7 +44,7 @@ export async function buildRechnungPdf(rechnung: Rechnung, stammdaten: Stammdate
     // und in der gleichen Größe wie der Absenderblock.
     { text: rechnung.rechnungsanschrift, style: 'cell', margin: GAP },
     {
-      text: `Rechnung Nr. ${rechnung.rechnungsnummer} vom ${formatDate(rechnung.erstelltAm.slice(0, 10))}`,
+      text: `${titel} · vom ${formatDate(rechnung.erstelltAm.slice(0, 10))}`,
       style: 'docTitleCompact',
       margin: GAP,
     },

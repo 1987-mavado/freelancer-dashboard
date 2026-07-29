@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { signOut } from '../auth/AuthGate'
+import TimerWidget from '../timer/TimerWidget'
 
 export default function AppShell() {
   async function handleLogout() {
@@ -16,6 +17,7 @@ export default function AppShell() {
         </button>
         <Outlet />
       </div>
+      <TimerWidget />
       <nav className="bottom-nav">
         <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="icon">⌂</span>

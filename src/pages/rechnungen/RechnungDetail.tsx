@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
-import { rechnungenRepo, projekteRepo, getStammdaten, zeiteintraegeRepo, ratecardsRepo } from '../../db/repo'
+import { rechnungenRepo, projekteRepo, kundenRepo, getStammdaten, zeiteintraegeRepo, ratecardsRepo } from '../../db/repo'
 import type { Rechnung, RechnungPosition, Zahlungsstatus } from '../../db/types'
 import PageHeader from '../../layout/PageHeader'
 import { emptyRechnung, generateRechnungsnummer, rechnungTotals } from '../../utils/rechnung'
@@ -9,7 +9,7 @@ import { formatEuro, uid } from '../../utils/format'
 import { rateFor } from '../../utils/kva'
 import { formatDauer, minutenZuStunden } from '../../utils/zeiterfassung'
 
-type LegacyFeld = 'empfaengerName' | 'empfaengerStrasse' | 'empfaengerPlz' | 'empfaengerOrt' | 'empfaengerLand' | 'leitwegId' | 'bestellnummer'
+type LegacyFeld = 'empfaengerName' | 'empfaengerStrasse' | 'empfaengerPlz' | 'empfaengerOrt' | 'empfaengerLand' | 'leitwegId' | 'bestellnummer' | 'taetigkeit'
 type LegacyRechnung = Omit<Rechnung, LegacyFeld> & Partial<Pick<Rechnung, LegacyFeld>>
 
 function withDefaults(r: LegacyRechnung): Rechnung {
@@ -21,6 +21,7 @@ function withDefaults(r: LegacyRechnung): Rechnung {
     empfaengerLand: 'DE',
     leitwegId: '',
     bestellnummer: '',
+    taetigkeit: '',
     ...r,
   }
 }
@@ -37,6 +38,7 @@ export default function RechnungDetail() {
     [rechnungId],
   )
   const projekte = useSupabaseQuery(['projekte'], () => projekteRepo.list(), [])
+  const kunden = useSupabaseQuery(['kunden'], () => kundenRepo.list(), [])
   const stammdaten = useSupabaseQuery(['stammdaten'], () => getStammdaten(), [])
   const zeiteintraege = useSupabaseQuery(['zeiteintraege'], () => zeiteintraegeRepo.list(), [])
   const ratecards = useSupabaseQuery(['ratecards'], () => ratecardsRepo.list(), [])
@@ -140,6 +142,12 @@ export default function RechnungDetail() {
   }
 
   const { netto, ustBetrag, brutto } = rechnungTotals(form.positionen, form.ustSatz)
+
+  const aktuellesProjekt = projekte?.find((p) => p.id === form.projektId)
+  const aktuellerKunde = kunden?.find((k) => k.id === aktuellesProjekt?.kundeId)
+  const titel = ['Rechnung', form.rechnungsnummer, aktuellerKunde?.name, form.taetigkeit.trim()]
+    .filter((t) => !!t && t.trim().length > 0)
+    .join(' – ')
 
   // Noch nicht abgerechnete Zeiteinträge zum Projekt dieser Rechnung — Basis
   // für den "Zeiterfassung übernehmen"-Button unten bei den Positionen.
@@ -263,7 +271,7 @@ export default function RechnungDetail() {
   return (
     <div>
       <PageHeader
-        title={form.rechnungsnummer}
+        title={titel}
         action={
           <div className="row" style={{ alignItems: 'center', gap: 'var(--s2)' }}>
             {saveState === 'saving' && <span className="muted">Speichert…</span>}
@@ -290,6 +298,17 @@ export default function RechnungDetail() {
               onChange={(e) => save({ ...form, bestellnummer: e.target.value })}
             />
           </div>
+        </div>
+
+        <div>
+          <label>Tätigkeit</label>
+          <input
+            className="field"
+            value={form.taetigkeit}
+            onChange={(e) => save({ ...form, taetigkeit: e.target.value })}
+            placeholder="z.B. Konzeption Markenauftritt"
+          />
+          <p className="muted">Erscheint in der Überschrift: „{titel}"</p>
         </div>
 
         <div className="row">

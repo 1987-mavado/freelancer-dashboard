@@ -11,6 +11,7 @@ import { formatEuro, formatDate } from '../../utils/format'
 const projektStatusLabel: Record<ProjektStatus, string> = {
   akquise: 'Akquise',
   aktiv: 'Aktiv',
+  ressourcenplanung: 'Ressourcenplanung',
   pausiert: 'Pausiert',
   abgeschlossen: 'Abgeschlossen',
 }

@@ -15,8 +15,15 @@ function emptyKva(projektId: number, ratecardId: number): Kva {
     ratecardId,
     bezeichnung: '',
     phasen: [],
+    status: 'entwurf',
     erstelltAm: new Date().toISOString(),
   }
+}
+
+type LegacyKva = Omit<Kva, 'status'> & Partial<Pick<Kva, 'status'>>
+
+function withDefaults(k: LegacyKva): Kva {
+  return { status: 'entwurf', ...k }
 }
 
 export default function KvaDetail() {
@@ -56,7 +63,7 @@ export default function KvaDetail() {
   const loadedKvaIdRef = useRef<number | undefined>(undefined)
   useEffect(() => {
     if (existing && loadedKvaIdRef.current !== kvaId) {
-      setForm(existing)
+      setForm(withDefaults(existing))
       loadedKvaIdRef.current = kvaId
     }
   }, [existing, kvaId])
@@ -95,6 +102,17 @@ export default function KvaDetail() {
     if (!confirm('KVA wirklich löschen?')) return
     await kvasRepo.remove(kvaId)
     navigate('/kva', { replace: true })
+  }
+
+  // Job-Pipeline: KVA annehmen → Projekt wechselt in die Ressourcenplanung,
+  // wo die tatsächlich verbrauchten Stunden bestätigt werden (siehe
+  // RessourcenPage.tsx). Von dort geht es automatisch weiter zur Rechnung.
+  async function handleAnnehmen() {
+    if (!form?.id) return
+    if (!confirm('KVA als angenommen markieren? Das Projekt wechselt dann in die Ressourcenplanung.')) return
+    await save({ ...form, status: 'angenommen' })
+    await projekteRepo.update(form.projektId, { status: 'ressourcenplanung' })
+    navigate('/ressourcen')
   }
 
   if (isNew || !form) {
@@ -234,6 +252,9 @@ export default function KvaDetail() {
           </div>
         }
       />
+      <div style={{ marginBottom: 'var(--s4)' }}>
+        <span className="status-pill">{form.status === 'angenommen' ? 'Angenommen' : 'Entwurf'}</span>
+      </div>
       <div className="row" style={{ marginBottom: 'var(--s4)' }}>
         <button className={`btn small ${tab === 'ratecard' ? '' : 'ghost'}`} onClick={() => setTab('ratecard')}>
           1. Ratecard
@@ -413,6 +434,21 @@ export default function KvaDetail() {
           <button className="btn ghost full" onClick={handleExportExcel} disabled={exportingExcel}>
             {exportingExcel ? 'Excel wird erstellt…' : 'Als Excel exportieren'}
           </button>
+
+          {form.status !== 'angenommen' && (
+            <button className="btn full" onClick={handleAnnehmen}>
+              KVA annehmen → Ressourcenplanung
+            </button>
+          )}
+          {form.status === 'angenommen' && (
+            <p className="muted">
+              Angenommen — Stunden werden im{' '}
+              <a href="#/ressourcen" onClick={(e) => { e.preventDefault(); navigate('/ressourcen') }}>
+                Ressourcentool
+              </a>{' '}
+              erfasst und bestätigt.
+            </p>
+          )}
         </div>
       )}
     </div>

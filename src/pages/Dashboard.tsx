@@ -12,7 +12,7 @@ import {
   zeiteintraegeRepo,
 } from '../db/repo'
 import { addDaysISO, todayISO } from '../utils/format'
-import { wochenstunden } from '../utils/zeiterfassung'
+import { tagesstunden, auslastungsStufe } from '../utils/zeiterfassung'
 
 const NEU_OPTIONEN = [
   { to: '/kunden/neu', label: 'Kunde' },
@@ -73,14 +73,14 @@ export default function Dashboard() {
     [],
   )
   const stammdaten = useSupabaseQuery(['stammdaten'], () => getStammdaten(), [])
-  const wochenstundenErfasst = useSupabaseQuery(
+  // Auslastungs-Warner: Summe aller Stunden über alle Kunden/Projekte am
+  // heutigen Tag. 8 Std. = normal, über 10 Std. = Gelb, über 12 Std. = Rot.
+  const heuteStunden = useSupabaseQuery(
     ['zeiteintraege'],
-    async () => wochenstunden(await zeiteintraegeRepo.list()),
+    async () => tagesstunden(await zeiteintraegeRepo.list()),
     [],
   )
-
-  const kapazitaet = stammdaten?.wochenkapazitaetStunden ?? 0
-  const ueberlastet = kapazitaet > 0 && (wochenstundenErfasst ?? 0) > kapazitaet
+  const stufe = auslastungsStufe(heuteStunden ?? 0)
 
   const tiles = [
     { to: '/bewerbungen', label: 'Bewerbungen offen', value: bewerbungenOffen },
@@ -97,6 +97,7 @@ export default function Dashboard() {
     { to: '/fokus', label: 'To-Do', value: todosOffen },
     { to: '/statistiken', label: 'Statistiken', value: '📊' },
     { to: '/ausgaben', label: 'Ausgaben', value: '🧾' },
+    { to: '/ressourcen', label: 'Ressourcenplanung', value: '🛠' },
   ]
 
   return (
@@ -105,13 +106,12 @@ export default function Dashboard() {
       <p className="muted" style={{ marginBottom: 'var(--s5)' }}>
         {new Date().toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })}
       </p>
-      {ueberlastet && (
-        <Link to="/zeit" className="warn-banner">
-          <div className="warn-title">⚠ Überlastet diese Woche</div>
-          <div>
-            {wochenstundenErfasst?.toFixed(1).replace('.', ',')} von {kapazitaet} Std. Wochenkapazität bereits
-            erfasst.
+      {stufe !== 'normal' && (
+        <Link to="/zeit" className={`warn-banner ${stufe === 'rot' ? 'bad' : 'yellow'}`}>
+          <div className="warn-title">
+            {stufe === 'rot' ? '🔴 Stark überlastet heute' : '🟡 Hohe Auslastung heute'}
           </div>
+          <div>{heuteStunden?.toFixed(1).replace('.', ',')} Std. heute über alle Kunden/Projekte erfasst.</div>
         </Link>
       )}
       {!!deadlinesBald && deadlinesBald > 0 && (

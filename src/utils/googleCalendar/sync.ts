@@ -4,6 +4,7 @@ import {
   projekteRepo,
   kvasRepo,
   bewerbungenRepo,
+  todosRepo,
   calendarSyncMapRepo,
 } from '../../db/repo'
 import type { CalendarEntityTyp } from '../../db/types'
@@ -15,6 +16,7 @@ import {
   buildKvaTarget,
   buildProjektTarget,
   buildRechnungTarget,
+  buildTodoTarget,
   type SyncTarget,
 } from './eventBuilders'
 
@@ -33,16 +35,18 @@ function mapKey(entityType: CalendarEntityTyp, entityId: number): string {
 export async function syncGoogleCalendar(clientId: string, calendarId: string): Promise<SyncResult> {
   const accessToken = await getAccessToken(clientId)
 
-  const [allDeadlines, allRechnungen, projekte, kvas, bewerbungen, existingMap] = await Promise.all([
+  const [allDeadlines, allRechnungen, projekte, kvas, bewerbungen, allTodos, existingMap] = await Promise.all([
     deadlinesRepo.list(),
     rechnungenRepo.list(),
     projekteRepo.list(),
     kvasRepo.list(),
     bewerbungenRepo.list(),
+    todosRepo.list(),
     calendarSyncMapRepo.list(),
   ])
   const rechnungen = allRechnungen.filter((r) => r.zahlungsstatus !== 'bezahlt')
   const deadlines = allDeadlines.filter((d) => !d.erledigt)
+  const todos = allTodos.filter((t) => !t.erledigt && t.faelligkeitsdatum)
 
   const projektNameById = new Map(projekte.map((p) => [p.id!, p.name]))
   const kvaLabelById = new Map(kvas.map((k) => [k.id!, k.bezeichnung]))
@@ -79,6 +83,11 @@ export async function syncGoogleCalendar(clientId: string, calendarId: string): 
   for (const b of bewerbungen) {
     if (!b.id) continue
     const t = buildBewerbungTarget(b)
+    if (t) targets.push(t)
+  }
+  for (const td of todos) {
+    if (!td.id) continue
+    const t = buildTodoTarget(td, td.projektId ? projektNameById.get(td.projektId) : undefined)
     if (t) targets.push(t)
   }
 
