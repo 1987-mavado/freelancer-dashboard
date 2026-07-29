@@ -53,6 +53,25 @@ export default function Dashboard() {
     async () => (await todosRepo.list()).filter((t) => !t.erledigt).length,
     [],
   )
+  // Erinnerungen: überfällige Rechnungen (Fälligkeitsdatum bereits verstrichen,
+  // noch nicht bezahlt) und schon länger (>7 Tage) unerledigte To-Dos.
+  const rechnungenUeberfaellig = useSupabaseQuery(
+    ['rechnungen'],
+    async () => {
+      const today = todayISO()
+      return (await rechnungenRepo.list()).filter((r) => r.zahlungsstatus !== 'bezahlt' && r.faelligkeitsdatum < today)
+        .length
+    },
+    [],
+  )
+  const todosAlt = useSupabaseQuery(
+    ['todos'],
+    async () => {
+      const schwelle = addDaysISO(-7)
+      return (await todosRepo.list()).filter((t) => !t.erledigt && t.erstelltAm.slice(0, 10) < schwelle).length
+    },
+    [],
+  )
   const stammdaten = useSupabaseQuery(['stammdaten'], () => getStammdaten(), [])
   const wochenstundenErfasst = useSupabaseQuery(
     ['zeiteintraege'],
@@ -92,6 +111,30 @@ export default function Dashboard() {
             {wochenstundenErfasst?.toFixed(1).replace('.', ',')} von {kapazitaet} Std. Wochenkapazität bereits
             erfasst.
           </div>
+        </Link>
+      )}
+      {!!deadlinesBald && deadlinesBald > 0 && (
+        <Link to="/deadlines" className="warn-banner">
+          <div className="warn-title">
+            ⏰ {deadlinesBald} Deadline{deadlinesBald > 1 ? 's' : ''} bald fällig
+          </div>
+          <div>In den nächsten 7 Tagen fällig und noch nicht erledigt.</div>
+        </Link>
+      )}
+      {!!rechnungenUeberfaellig && rechnungenUeberfaellig > 0 && (
+        <Link to="/rechnungen" className="warn-banner">
+          <div className="warn-title">
+            💸 {rechnungenUeberfaellig} Rechnung{rechnungenUeberfaellig > 1 ? 'en' : ''} überfällig
+          </div>
+          <div>Fälligkeitsdatum bereits verstrichen, noch nicht als bezahlt markiert.</div>
+        </Link>
+      )}
+      {!!todosAlt && todosAlt > 0 && (
+        <Link to="/fokus" className="warn-banner">
+          <div className="warn-title">
+            📝 {todosAlt} To-Do{todosAlt > 1 ? 's' : ''} seit über einer Woche offen
+          </div>
+          <div>Diese Einträge stehen schon länger unerledigt in deiner Liste.</div>
         </Link>
       )}
       <div className="tile-grid">
