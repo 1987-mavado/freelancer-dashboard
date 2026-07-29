@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { projekteRepo, kundenRepo } from '../../db/repo'
+import { ensureRechnungFuerAbgeschlossenesProjekt } from '../../utils/rechnung'
 import PageHeader from '../../layout/PageHeader'
 import type { ProjektStatus } from '../../db/types'
 
@@ -9,6 +10,13 @@ const statusLabel: Record<ProjektStatus, string> = {
   aktiv: 'Aktiv',
   pausiert: 'Pausiert',
   abgeschlossen: 'Abgeschlossen',
+}
+
+const statusBadgeClass: Record<ProjektStatus, string> = {
+  akquise: 'neutral',
+  aktiv: 'orange',
+  pausiert: 'yellow',
+  abgeschlossen: 'green',
 }
 
 export default function ProjekteList() {
@@ -20,11 +28,24 @@ export default function ProjekteList() {
     return kunden?.find((k) => k.id === kundeId)?.name ?? '–'
   }
 
-  async function handleDelete(e: React.MouseEvent, id?: number) {
+  async function handleAbschliessen(e: React.MouseEvent, id?: number) {
     e.stopPropagation()
     if (!id) return
-    if (!confirm('Projekt wirklich löschen? Verknüpfte KVAs und Rechnungen bleiben bestehen.')) return
-    await projekteRepo.remove(id)
+    if (!confirm('Projekt abschließen? Dabei wird automatisch eine Rechnung angelegt.')) return
+    await projekteRepo.update(id, { status: 'abgeschlossen' })
+    const neueRechnungId = await ensureRechnungFuerAbgeschlossenesProjekt(id)
+    if (neueRechnungId) navigate(`/rechnungen/${neueRechnungId}`)
+  }
+
+  async function handleDelete(e: React.MouseEvent, projekt: { id?: number; status: ProjektStatus }) {
+    e.stopPropagation()
+    if (!projekt.id) return
+    const frage =
+      projekt.status !== 'akquise'
+        ? 'Dieses Projekt ist bereits aktiv/abgeschlossen — wirklich löschen? (Verknüpfte KVAs und Rechnungen bleiben bestehen.)'
+        : 'Projekt wirklich löschen?'
+    if (!confirm(frage)) return
+    await projekteRepo.remove(projekt.id)
   }
 
   return (
@@ -39,9 +60,14 @@ export default function ProjekteList() {
                 {kundeName(p.kundeId)} · {p.nummer}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
-              <span className="status-pill">{statusLabel[p.status]}</span>
-              <button className="icon-btn" onClick={(e) => handleDelete(e, p.id)} aria-label="Löschen">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+              <span className={`status-badge ${statusBadgeClass[p.status]}`}>{statusLabel[p.status]}</span>
+              {p.status !== 'abgeschlossen' && (
+                <button className="icon-btn" onClick={(e) => handleAbschliessen(e, p.id)} aria-label="Abschließen">
+                  ✓
+                </button>
+              )}
+              <button className="icon-btn" onClick={(e) => handleDelete(e, p)} aria-label="Löschen">
                 ✕
               </button>
             </div>

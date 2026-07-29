@@ -77,7 +77,11 @@ export default function ProjektDetail() {
 
   async function handleDelete() {
     if (!projektId) return
-    if (!confirm('Projekt wirklich löschen? Verknüpfte KVAs und Rechnungen bleiben bestehen.')) return
+    const frage =
+      form.status !== 'akquise'
+        ? 'Dieses Projekt ist bereits aktiv/abgeschlossen — wirklich löschen? (Verknüpfte KVAs und Rechnungen bleiben bestehen.)'
+        : 'Projekt wirklich löschen?'
+    if (!confirm(frage)) return
     await projekteRepo.remove(projektId)
     navigate('/projekte', { replace: true })
   }
