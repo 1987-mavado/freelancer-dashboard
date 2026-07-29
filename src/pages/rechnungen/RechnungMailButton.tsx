@@ -2,23 +2,43 @@ import { useState } from 'react'
 import type { Rechnung, Stammdaten } from '../../db/types'
 import { sendGmail } from '../../utils/gmail/send'
 import { uint8ArrayToBase64 } from '../../utils/base64'
+import { rechnungTotals } from '../../utils/rechnung'
+import { formatEuro, formatDate } from '../../utils/format'
 
 interface Props {
   rechnung: Rechnung
   stammdaten: Stammdaten
+  // "erinnerung": freundlich formulierte Zahlungserinnerung für bereits
+  // überfällige Rechnungen, mit anderem Betreff/Text vorbefüllt als der
+  // normale Versand.
+  modus?: 'standard' | 'erinnerung'
+}
+
+function standardText(rechnung: Rechnung, stammdaten: Stammdaten) {
+  return {
+    subject: `Rechnung ${rechnung.rechnungsnummer}`,
+    body: `Hallo,\n\nanbei die Rechnung ${rechnung.rechnungsnummer}.\n\n${stammdaten.rechnungAbschlusstext}`,
+  }
+}
+
+function erinnerungText(rechnung: Rechnung, stammdaten: Stammdaten) {
+  const { brutto } = rechnungTotals(rechnung.positionen, rechnung.ustSatz)
+  return {
+    subject: `Kurze Erinnerung: Rechnung ${rechnung.rechnungsnummer}`,
+    body: `Hallo,\n\nich hoffe, es geht Ihnen gut. Ich wollte nur kurz freundlich an die Rechnung ${rechnung.rechnungsnummer} über ${formatEuro(brutto)} erinnern, die am ${formatDate(rechnung.faelligkeitsdatum)} fällig war und bei mir noch als offen geführt wird.\n\nFalls die Zahlung bereits veranlasst wurde, betrachten Sie diese Nachricht bitte als gegenstandslos — andernfalls wäre ich Ihnen für eine kurze Rückmeldung oder den baldigen Ausgleich sehr dankbar.\n\nVielen Dank und viele Grüße\n${stammdaten.name}`,
+  }
 }
 
 // Rechnung direkt aus dem Portal per Mail versenden (Gmail): der Mail-Text
 // ist frei editierbar, das Rechnungs-PDF wird automatisch als Anhang erzeugt
 // und mitgeschickt. Nutzt denselben Google-Client wie der Kalender-Sync,
 // fragt beim ersten Mal zusätzlich den Gmail-Send-Scope an.
-export default function RechnungMailButton({ rechnung, stammdaten }: Props) {
+export default function RechnungMailButton({ rechnung, stammdaten, modus = 'standard' }: Props) {
   const [open, setOpen] = useState(false)
   const [to, setTo] = useState('')
-  const [subject, setSubject] = useState(`Rechnung ${rechnung.rechnungsnummer}`)
-  const [body, setBody] = useState(
-    `Hallo,\n\nanbei die Rechnung ${rechnung.rechnungsnummer}.\n\n${stammdaten.rechnungAbschlusstext}`,
-  )
+  const vorlage = modus === 'erinnerung' ? erinnerungText(rechnung, stammdaten) : standardText(rechnung, stammdaten)
+  const [subject, setSubject] = useState(vorlage.subject)
+  const [body, setBody] = useState(vorlage.body)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
@@ -65,8 +85,8 @@ export default function RechnungMailButton({ rechnung, stammdaten }: Props) {
 
   if (!open) {
     return (
-      <button className="btn ghost full" onClick={() => setOpen(true)}>
-        Per E-Mail versenden
+      <button className={modus === 'erinnerung' ? 'btn full' : 'btn ghost full'} onClick={() => setOpen(true)}>
+        {modus === 'erinnerung' ? 'Erinnerungsmail senden' : 'Per E-Mail versenden'}
       </button>
     )
   }

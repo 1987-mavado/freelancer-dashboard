@@ -532,6 +532,10 @@ export default function RechnungDetail() {
           </div>
         </div>
 
+        {form.zahlungsstatus === 'ueberfaellig' && stammdaten && (
+          <RechnungMailButton rechnung={form} stammdaten={stammdaten} modus="erinnerung" />
+        )}
+
         <button className="btn full" onClick={handleExportPdf} disabled={exportingPdf}>
           {exportingPdf ? 'PDF wird erstellt…' : 'Als PDF exportieren'}
         </button>
