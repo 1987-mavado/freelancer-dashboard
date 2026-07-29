@@ -152,7 +152,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   return (
     <div className="lock-screen">
       <div className="lock-card">
-        <h1>Freelance Dashboard</h1>
+        <h1>Done</h1>
         {recoveryDone && <p className="muted">Passwort gespeichert. Bitte jetzt anmelden.</p>}
         {signupInfo && <p className="muted">{signupInfo}</p>}
         <form onSubmit={mode === 'login' ? handleLogin : handleSignup} className="stack">
