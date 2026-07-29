@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { ausgabenRepo } from '../../db/repo'
 import { supabase } from '../../db/supabaseClient'
+import { erkenneBeleg } from '../../utils/belegOcr'
 import PageHeader from '../../layout/PageHeader'
 import { formatEuro, formatDate, todayISO } from '../../utils/format'
 import type { Ausgabe, AusgabeKategorie, BewirtungAnlass } from '../../db/types'
@@ -30,6 +31,8 @@ function emptyForm(): Ausgabe {
     betrag: 0,
     beschreibung: '',
     belegUrl: '',
+    aussteller: '',
+    ausstellerAdresse: '',
     bewirtungTeilnehmer: '',
     bewirtungLokal: '',
     bewirtungAnlass: '',
@@ -43,6 +46,31 @@ export default function AusgabenList() {
   const [belegFile, setBelegFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [analysiere, setAnalysiere] = useState(false)
+
+  // Beleg-Foto-Analyse (client-seitig, siehe utils/belegOcr.ts): erkannte
+  // Felder werden nur vorbefüllt, wenn sie noch leer sind — bereits manuell
+  // eingetragene Werte werden nicht überschrieben. Erkennung ist heuristisch,
+  // alle Felder bleiben normal editierbar.
+  async function handleBelegAuswahl(file: File | null) {
+    setBelegFile(file)
+    if (!file || !file.type.startsWith('image/')) return
+    setAnalysiere(true)
+    try {
+      const erkannt = await erkenneBeleg(file)
+      setForm((f) => ({
+        ...f,
+        aussteller: f.aussteller || erkannt.aussteller || f.aussteller,
+        ausstellerAdresse: f.ausstellerAdresse || erkannt.adresse || f.ausstellerAdresse,
+        betrag: f.betrag || erkannt.betrag || f.betrag,
+      }))
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('Beleg-Analyse fehlgeschlagen', err)
+    } finally {
+      setAnalysiere(false)
+    }
+  }
 
   const ausgaben = useSupabaseQuery(
     ['ausgaben'],
@@ -142,6 +170,26 @@ export default function AusgabenList() {
               placeholder="z.B. Adobe Creative Cloud Abo"
             />
           </div>
+          <div className="row">
+            <div>
+              <label>Aussteller</label>
+              <input
+                className="field"
+                value={form.aussteller}
+                onChange={(e) => setForm((f) => ({ ...f, aussteller: e.target.value }))}
+                placeholder="z.B. Amazon EU S.à r.l."
+              />
+            </div>
+            <div>
+              <label>Adresse</label>
+              <input
+                className="field"
+                value={form.ausstellerAdresse}
+                onChange={(e) => setForm((f) => ({ ...f, ausstellerAdresse: e.target.value }))}
+                placeholder="z.B. 80333 München"
+              />
+            </div>
+          </div>
 
           {form.kategorie === 'bewirtung' && (
             <>
@@ -192,8 +240,8 @@ export default function AusgabenList() {
                 type="file"
                 accept="image/*"
                 capture="environment"
-                onChange={(e) => setBelegFile(e.target.files?.[0] ?? null)}
-                disabled={uploading}
+                onChange={(e) => handleBelegAuswahl(e.target.files?.[0] ?? null)}
+                disabled={uploading || analysiere}
                 style={{ display: 'none' }}
               />
               <label htmlFor="beleg-kamera" className="btn ghost full" style={{ textAlign: 'center', margin: 0 }}>
@@ -203,8 +251,8 @@ export default function AusgabenList() {
                 id="beleg-datei"
                 type="file"
                 accept="image/*,application/pdf"
-                onChange={(e) => setBelegFile(e.target.files?.[0] ?? null)}
-                disabled={uploading}
+                onChange={(e) => handleBelegAuswahl(e.target.files?.[0] ?? null)}
+                disabled={uploading || analysiere}
                 style={{ display: 'none' }}
               />
               <label htmlFor="beleg-datei" className="btn ghost full" style={{ textAlign: 'center', margin: 0 }}>
@@ -212,6 +260,10 @@ export default function AusgabenList() {
               </label>
             </div>
             {belegFile && <p className="muted">Ausgewählt: {belegFile.name}</p>}
+            {analysiere && <p className="muted">Beleg wird analysiert…</p>}
+            {!analysiere && (form.aussteller || form.ausstellerAdresse) && belegFile && (
+              <p className="muted">Automatisch erkannt, bitte prüfen.</p>
+            )}
             {uploadError && <p className="error">Fehler beim Hochladen: {uploadError}</p>}
           </div>
           <div className="row">
@@ -242,6 +294,7 @@ export default function AusgabenList() {
               </div>
               <div className="list-sub">
                 {formatDate(a.datum)} · {kategorieLabel[a.kategorie]}
+                {a.aussteller && ` · ${a.aussteller}`}
                 {a.belegUrl && (
                   <>
                     {' · '}

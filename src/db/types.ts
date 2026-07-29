@@ -217,6 +217,10 @@ export interface Ausgabe {
   betrag: number
   beschreibung: string
   belegUrl: string
+  // Per Beleg-Foto-OCR erkannt (oder manuell eingetragen) — wer die
+  // Ausgabe ausgestellt hat und dessen Adresse.
+  aussteller: string
+  ausstellerAdresse: string
   // Nur relevant/befüllt bei kategorie === 'bewirtung'.
   bewirtungTeilnehmer: string
   bewirtungLokal: string
