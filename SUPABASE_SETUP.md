@@ -26,16 +26,21 @@ siehe ganz unten.
    (stammdaten, agenturen, ratecards, kunden, projekte, bewerbungen, kvas,
    rechnungen, deadlines, todos, calendar_sync_map).
 
-## 3. Auth konfigurieren (ein Account, kein Self-Signup)
+## 3. Auth konfigurieren (offene Registrierung, mehrere Accounts)
+
+Seit der Multi-User-Migration (`0012_multi_user.sql`) hat jeder Account seine
+eigenen, streng getrennten Daten (Row Level Security). Registrierung ist
+bewusst offen — jede:r mit dem Link kann sich einen eigenen Account anlegen.
 
 1. **Authentication → Providers → Email**: aktiviert lassen.
-2. **Authentication → Settings** (bzw. "Sign In / Providers" je nach
-   Supabase-Version): **"Allow new users to sign up" deaktivieren** — das
-   verhindert, dass sich jemand anderes selbst registrieren kann.
-3. **Authentication → Users → Add user → Create new user**: deine E-Mail und
-   ein Passwort eintragen, **"Auto Confirm User" aktivieren** (damit keine
-   Bestätigungs-Mail nötig ist). Das ist der einzige Account, mit dem du dich
-   später in der App einloggst.
+2. **Authentication → Settings**: **"Allow new users to sign up" aktivieren**
+   (ggf. wieder aktivieren, falls du es vorher deaktiviert hattest).
+3. Optional: **"Confirm email" aktivieren**, wenn neue Accounts erst per
+   Bestätigungs-E-Mail freigeschaltet werden sollen, statt sich sofort
+   einloggen zu können.
+4. Falls du die offene Registrierung später wieder einschränken möchtest,
+   reicht es, "Allow new users to sign up" wieder zu deaktivieren — bestehende
+   Accounts bleiben davon unberührt.
 
 ## 4. API-Zugangsdaten holen
 

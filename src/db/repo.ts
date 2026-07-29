@@ -38,45 +38,49 @@ export const ausgabenRepo = makeRepo<Ausgabe>('ausgaben')
 // frisch aufgesetzte Stammdaten-Zeile nicht mit leeren Pflichtfeldern für
 // XRechnung/ZUGFeRD startet. Telefon, E-Mail, USt-IdNr. und BIC sind in den
 // Unterlagen nicht angegeben und bleiben daher bewusst leer statt geraten.
+// Vorbelegung nur noch für brandneue Accounts sinnvoll benannt (Name/Adresse
+// etc. sind hier bewusst leer statt mit Markus' Daten vorbefüllt, da diese
+// Defaults inzwischen für jeden neuen Account gelten — nicht nur für einen).
 const STAMMDATEN_DEFAULTS: Stammdaten = {
-  id: 1,
-  name: 'Markus Kriesmair',
-  adresse: 'Spicherenstraße 3\n81667 München',
-  strasse: 'Spicherenstraße 3',
-  plz: '81667',
-  ort: 'München',
+  name: '',
+  adresse: '',
+  strasse: '',
+  plz: '',
+  ort: '',
   land: 'DE',
-  website: 'mkriesmair.online',
+  website: '',
   telefon: '',
   email: '',
-  steuernummer: '145 150 71 238',
+  steuernummer: '',
   ustIdNr: '',
-  iban: 'DE30100110012847846718',
+  iban: '',
   bic: '',
-  bank: 'N26',
+  bank: '',
   zahlungsbedingungen: '14 Tage netto',
   logoUrl: '',
   rechnungAbschlusstext:
-    'Vielen Dank für die Zusammenarbeit.\nTerms of payment: Payment is due 14 days after receipt of invoice.\nBitte überweisen Sie den Rechnungsbetrag unter Angabe der Rechnungsnummer auf das unten angegebene Konto.\nDer Rechnungsbetrag ist bis 14 Tage nach Rechnungseingang fällig.\nMit freundlichen Grüßen\nMarkus Kriesmair',
+    'Vielen Dank für die Zusammenarbeit.\nTerms of payment: Payment is due 14 days after receipt of invoice.\nBitte überweisen Sie den Rechnungsbetrag unter Angabe der Rechnungsnummer auf das unten angegebene Konto.\nDer Rechnungsbetrag ist bis 14 Tage nach Rechnungseingang fällig.\nMit freundlichen Grüßen',
   googleClientId: '',
   googleCalendarId: 'primary',
   googleLastSyncedAt: '',
 }
 
-// Stammdaten sind eine Singleton-Zeile (id=1). Die SQL-Migration legt sie
-// bereits initial an; der Fallback hier greift nur, falls die Zeile aus
-// irgendeinem Grund fehlt.
+// Stammdaten: eine Zeile pro Account, RLS filtert automatisch auf den
+// eingeloggten Nutzer (user_id = auth.uid()) — kein Filter auf `id` mehr
+// nötig/möglich, seit es kein festes Singleton (id=1) mehr gibt.
 export async function getStammdaten(): Promise<Stammdaten> {
-  const { data, error } = await supabase.from('stammdaten').select('*').eq('id', 1).maybeSingle()
+  const { data, error } = await supabase.from('stammdaten').select('*').maybeSingle()
   if (error) throw error
   if (data) return rowToApp<Stammdaten>(data) as Stammdaten
   await putStammdaten(STAMMDATEN_DEFAULTS)
   return STAMMDATEN_DEFAULTS
 }
 
+// Upsert über die (pro Account eindeutige) Spalte user_id statt über `id`,
+// da jeder Account jetzt seine eigene Stammdaten-Zeile hat.
 export async function putStammdaten(s: Stammdaten): Promise<void> {
   const row = appToRow(s as unknown as Record<string, unknown>, { keepId: true })
-  const { error } = await supabase.from('stammdaten').upsert(row)
+  const { error } = await supabase.from('stammdaten').upsert(row, { onConflict: 'user_id' })
   if (error) throw error
   notify('stammdaten')
 }

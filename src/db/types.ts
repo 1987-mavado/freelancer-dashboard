@@ -1,5 +1,7 @@
+// Ein Stammdaten-Datensatz pro Account (Multi-User), gefunden über die
+// Datenbankspalte user_id (RLS-gefiltert) statt über eine feste id.
 export interface Stammdaten {
-  id: 1
+  id?: number
   name: string
   adresse: string
   strasse: string

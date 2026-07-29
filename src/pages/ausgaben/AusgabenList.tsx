@@ -61,8 +61,11 @@ export default function AusgabenList() {
     if (belegFile) {
       setUploading(true)
       try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
         const ext = belegFile.name.split('.').pop() || 'pdf'
-        const path = `beleg-${Date.now()}.${ext}`
+        const path = `${user?.id ?? 'unbekannt'}/beleg-${Date.now()}.${ext}`
         const { error: uploadError } = await supabase.storage
           .from('belege')
           .upload(path, belegFile, { upsert: true, cacheControl: '3600' })

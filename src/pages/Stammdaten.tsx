@@ -9,7 +9,6 @@ import { formatDate } from '../utils/format'
 import type { SyncResult } from '../utils/googleCalendar/sync'
 
 const emptyForm: StammdatenType = {
-  id: 1,
   name: '',
   adresse: '',
   strasse: '',
@@ -59,8 +58,11 @@ export default function Stammdaten() {
     setUploadingLogo(true)
     setLogoError(null)
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       const ext = file.name.split('.').pop() || 'png'
-      const path = `logo-${Date.now()}.${ext}`
+      const path = `${user?.id ?? 'unbekannt'}/logo-${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage
         .from('logos')
         .upload(path, file, { upsert: true, cacheControl: '3600' })

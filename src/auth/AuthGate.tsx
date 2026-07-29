@@ -2,16 +2,18 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../db/supabaseClient'
 
-// Ersetzt den bisherigen lokalen PIN-Lock durch Supabase Auth. Es gibt genau
-// einen manuell angelegten Account (Self-Signup ist im Supabase-Projekt
-// deaktiviert, siehe SUPABASE_SETUP.md) — daher nur ein Login-Formular,
-// keine Registrierung.
+// Ersetzt den bisherigen lokalen PIN-Lock durch Supabase Auth. Jeder Account
+// hat über Row Level Security streng von anderen Accounts getrennte Daten
+// (siehe Migration 0012_multi_user.sql) — Registrierung ist daher offen,
+// nicht mehr auf einen einzigen manuell angelegten Account beschränkt.
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [signupInfo, setSignupInfo] = useState('')
 
   // Wenn der Nutzer auf den "Passwort vergessen"-Link aus der E-Mail klickt,
   // leitet Supabase mit einem Recovery-Token in der URL hierher zurück
@@ -49,6 +51,27 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     setSubmitting(false)
     if (signInError) {
       setError('E-Mail oder Passwort falsch.')
+    }
+  }
+
+  async function handleSignup(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+    setSignupInfo('')
+    if (password.length < 6) {
+      setError('Das Passwort muss mindestens 6 Zeichen lang sein.')
+      return
+    }
+    setSubmitting(true)
+    const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
+    setSubmitting(false)
+    if (signUpError) {
+      setError(signUpError.message)
+      return
+    }
+    if (!data.session) {
+      setSignupInfo('Fast fertig — bitte den Bestätigungslink in deiner E-Mail-Inbox anklicken.')
+      setMode('login')
     }
   }
 
@@ -131,7 +154,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       <div className="lock-card">
         <h1>Freelance Dashboard</h1>
         {recoveryDone && <p className="muted">Passwort gespeichert. Bitte jetzt anmelden.</p>}
-        <form onSubmit={handleLogin} className="stack">
+        {signupInfo && <p className="muted">{signupInfo}</p>}
+        <form onSubmit={mode === 'login' ? handleLogin : handleSignup} className="stack">
           <input
             className="field"
             type="email"
@@ -145,15 +169,32 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             className="field"
             type="password"
             placeholder="Passwort"
-            autoComplete="current-password"
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
           {error && <p className="error">{error}</p>}
           <button className="btn" type="submit" disabled={submitting}>
-            {submitting ? 'Anmelden…' : 'Anmelden'}
+            {submitting
+              ? mode === 'login'
+                ? 'Anmelden…'
+                : 'Registrieren…'
+              : mode === 'login'
+                ? 'Anmelden'
+                : 'Account erstellen'}
           </button>
         </form>
+        <button
+          className="btn ghost full"
+          style={{ marginTop: 'var(--s3)' }}
+          onClick={() => {
+            setMode((m) => (m === 'login' ? 'signup' : 'login'))
+            setError('')
+            setSignupInfo('')
+          }}
+        >
+          {mode === 'login' ? 'Noch keinen Account? Registrieren' : 'Schon einen Account? Anmelden'}
+        </button>
       </div>
     </div>
   )
