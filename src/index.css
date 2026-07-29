@@ -20,6 +20,7 @@
   --yellow: #e8d05a;
   --green: #6bcf8f;
   --radius: 16px;
+  --global-header-h: 44px;
   --s1: 4px;
   --s2: 8px;
   --s3: 12px;
@@ -109,9 +110,58 @@ a {
   min-height: 100vh;
 }
 
-.app-header {
+.global-header {
   position: sticky;
   top: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s1);
+  height: var(--global-header-h);
+  padding: 0 var(--s4);
+  background: rgba(10, 10, 10, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.header-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--bad);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.app-header {
+  position: sticky;
+  top: var(--global-header-h);
   z-index: 10;
   display: flex;
   align-items: center;
@@ -149,19 +199,6 @@ a {
   margin: 0 auto;
 }
 
-.logout-btn {
-  position: absolute;
-  top: var(--s4);
-  right: var(--s4);
-  z-index: 5;
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 20px;
-  padding: var(--s2);
-  cursor: pointer;
-  line-height: 1;
-}
 
 .bottom-nav {
   position: fixed;
@@ -264,16 +301,75 @@ a {
   color: var(--muted);
 }
 
-/* ---------- Dashboard tiles ---------- */
-.tile-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--s3);
+/* ---------- Kompakte Homescreen-Widgets ---------- */
+.widget-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--s3) var(--s4);
+  margin-bottom: var(--s3);
+  color: var(--text);
+  text-decoration: none;
 }
 
-.tile.fokusmusik {
-  cursor: default;
+.widget-header {
+  display: flex;
   align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s2);
+}
+
+.widget-icon {
+  display: flex;
+  color: var(--muted);
+}
+
+.widget-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.widget-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface-2);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.widget-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.widget-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  font-size: 13px;
+  padding: 3px 0;
+}
+
+.widget-row .widget-row-sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.widget-list-fade {
+  mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 100%);
+}
+
+.widget-empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding: var(--s2) 0;
 }
 
 .warn-banner {
@@ -309,36 +405,6 @@ a {
 
 .warn-banner.bad .warn-title {
   color: var(--bad);
-}
-
-.tile {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--s4);
-  text-decoration: none;
-  color: var(--text);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2);
-  min-height: 96px;
-  justify-content: space-between;
-  transition: transform 0.1s ease, background 0.15s ease;
-}
-
-.tile:active {
-  transform: scale(0.97);
-  background: var(--surface-2);
-}
-
-.tile .tile-value {
-  font-size: 30px;
-  font-weight: 700;
-}
-
-.tile .tile-label {
-  font-size: 13px;
-  color: var(--muted);
 }
 
 /* ---------- Generic UI ---------- */

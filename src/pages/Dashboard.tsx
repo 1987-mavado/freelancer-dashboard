@@ -1,35 +1,20 @@
 import { Link } from 'react-router-dom'
 import { useSupabaseQuery } from '../db/useSupabaseQuery'
 import {
-  bewerbungenRepo,
-  projekteRepo,
   kvasRepo,
+  projekteRepo,
   rechnungenRepo,
   ausgabenRepo,
   deadlinesRepo,
   todosRepo,
   zeiteintraegeRepo,
 } from '../db/repo'
-import { addDaysISO, todayISO, formatEuro } from '../utils/format'
-import { tagesstunden, auslastungsStufe, montagDerWoche } from '../utils/zeiterfassung'
+import { addDaysISO, todayISO, formatEuro, formatDate } from '../utils/format'
+import { tagesstunden, auslastungsStufe, montagDerWoche, formatDauer } from '../utils/zeiterfassung'
 import { rechnungTotals } from '../utils/rechnung'
 import LineChart from '../components/LineChart'
-import FokusmusikToggle from './fokus/FokusmusikToggle'
-import type { KvaStatus } from '../db/types'
-
-const kvaStatusLabel: Record<KvaStatus, string> = {
-  entwurf: 'Entwurf',
-  gesendet: 'Gesendet',
-  angenommen: 'Angenommen',
-  abgelehnt: 'Abgelehnt',
-}
-
-const kvaStatusBadgeClass: Record<KvaStatus, string> = {
-  entwurf: 'neutral',
-  gesendet: 'orange',
-  angenommen: 'green',
-  abgelehnt: 'red',
-}
+import CompactListWidget from '../components/CompactListWidget'
+import { DocumentIcon, LetterIcon, FolderIcon, ClockIcon, CheckboxIcon } from '../components/icons'
 
 // Montags-Daten (YYYY-MM-DD) der letzten `anzahl` Kalenderwochen inkl. der
 // aktuellen, chronologisch aufsteigend — für den Finanz-Header-Trend.
@@ -45,78 +30,28 @@ function letzteWochenMontage(anzahl: number): string[] {
 }
 
 export default function Dashboard() {
-  const bewerbungenOffen = useSupabaseQuery(
-    ['bewerbungen'],
-    async () => (await bewerbungenRepo.list()).filter((b) => !b.archiviert).length,
-    [],
-  )
-  const projekteAktiv = useSupabaseQuery(
-    ['projekte'],
-    async () => (await projekteRepo.list()).filter((p) => p.status === 'aktiv').length,
-    [],
-  )
-  const kvaOffenCount = useSupabaseQuery(
-    ['kvas'],
-    async () => (await kvasRepo.list()).filter((k) => k.status !== 'angenommen' && k.status !== 'abgelehnt').length,
-    [],
-  )
-  const offeneKvas = useSupabaseQuery(
-    ['kvas'],
-    async () => (await kvasRepo.list()).filter((k) => k.status !== 'angenommen' && k.status !== 'abgelehnt'),
-    [],
-  )
-  const rechnungenOffen = useSupabaseQuery(
-    ['rechnungen'],
-    async () => (await rechnungenRepo.list()).filter((r) => r.zahlungsstatus !== 'bezahlt').length,
-    [],
-  )
-  const deadlinesBald = useSupabaseQuery(['deadlines'], async () => {
-    const today = todayISO()
-    const in7 = addDaysISO(7)
-    return (await deadlinesRepo.list()).filter(
-      (d) => !d.erledigt && d.faelligkeitsdatum >= today && d.faelligkeitsdatum <= in7,
-    ).length
-  }, [])
-  const todosOffen = useSupabaseQuery(
-    ['todos'],
-    async () => (await todosRepo.list()).filter((t) => !t.erledigt).length,
-    [],
-  )
-  // Erinnerungen: überfällige Rechnungen (Fälligkeitsdatum bereits verstrichen,
-  // noch nicht bezahlt) und schon länger (>7 Tage) unerledigte To-Dos.
-  const rechnungenUeberfaellig = useSupabaseQuery(
-    ['rechnungen'],
-    async () => {
-      const today = todayISO()
-      return (await rechnungenRepo.list()).filter((r) => r.zahlungsstatus !== 'bezahlt' && r.faelligkeitsdatum < today)
-        .length
-    },
-    [],
-  )
-  const todosAlt = useSupabaseQuery(
-    ['todos'],
-    async () => {
-      const schwelle = addDaysISO(-7)
-      return (await todosRepo.list()).filter((t) => !t.erledigt && t.erstelltAm.slice(0, 10) < schwelle).length
-    },
-    [],
-  )
-  // Auslastungs-Warner: Summe aller Stunden über alle Kunden/Projekte am
-  // heutigen Tag. 8 Std. = normal, über 10 Std. = Gelb, über 12 Std. = Rot.
-  const heuteStunden = useSupabaseQuery(
-    ['zeiteintraege'],
-    async () => tagesstunden(await zeiteintraegeRepo.list()),
-    [],
-  )
-  const stufe = auslastungsStufe(heuteStunden ?? 0)
-
+  const kvas = useSupabaseQuery(['kvas'], () => kvasRepo.list(), [])
+  const projekte = useSupabaseQuery(['projekte'], () => projekteRepo.list(), [])
   const rechnungen = useSupabaseQuery(['rechnungen'], () => rechnungenRepo.list(), [])
   const ausgaben = useSupabaseQuery(['ausgaben'], () => ausgabenRepo.list(), [])
+  const deadlines = useSupabaseQuery(['deadlines'], () => deadlinesRepo.list(), [])
+  const todos = useSupabaseQuery(['todos'], () => todosRepo.list(), [])
+  const zeiteintraege = useSupabaseQuery(['zeiteintraege'], () => zeiteintraegeRepo.list(), [])
 
-  // Finanz-Header: Einnahmen (bezahlte Rechnungen) minus Ausgaben der letzten
-  // 30 Tage. Approximation über das Rechnungs-Erstelldatum, da kein
-  // separates Zahlungsdatum erfasst wird (wie an anderer Stelle bereits
-  // kommuniziert).
+  // Erinnerungen (bleiben als bedingte Hinweis-Banner bestehen — nur die
+  // separate große Deadline-Sektion ist entfallen, siehe globaler Header).
+  const heuteStunden = tagesstunden(zeiteintraege ?? [])
+  const stufe = auslastungsStufe(heuteStunden)
+  const today = todayISO()
+  const rechnungenUeberfaellig = (rechnungen ?? []).filter(
+    (r) => r.zahlungsstatus !== 'bezahlt' && r.faelligkeitsdatum < today,
+  ).length
+  const schwelle = addDaysISO(-7)
+  const todosAlt = (todos ?? []).filter((t) => !t.erledigt && t.erstelltAm.slice(0, 10) < schwelle).length
+
+  // Finanz-Header: Einnahmen (bezahlte Rechnungen) minus Ausgaben der
+  // letzten 30 Tage. Approximation über das Rechnungs-Erstelldatum, da kein
+  // separates Zahlungsdatum erfasst wird.
   const vor30Tage = addDaysISO(-30)
   const einnahmen30 = (rechnungen ?? [])
     .filter((r) => r.zahlungsstatus === 'bezahlt' && r.erstelltAm.slice(0, 10) >= vor30Tage)
@@ -131,33 +66,27 @@ export default function Dashboard() {
     const einnahmen = (rechnungen ?? [])
       .filter((r) => r.zahlungsstatus === 'bezahlt' && r.erstelltAm.slice(0, 10) >= montag && r.erstelltAm.slice(0, 10) <= sonntag)
       .reduce((sum, r) => sum + rechnungTotals(r.positionen, r.ustSatz).brutto, 0)
-    const ausg = (ausgaben ?? [])
-      .filter((a) => a.datum >= montag && a.datum <= sonntag)
-      .reduce((sum, a) => sum + a.betrag, 0)
+    const ausg = (ausgaben ?? []).filter((a) => a.datum >= montag && a.datum <= sonntag).reduce((sum, a) => sum + a.betrag, 0)
     return einnahmen - ausg
   })
 
-  // Steuer-Kachel: einfache Gewinn-Näherung fürs laufende Jahr (Details/
-  // vollständige Aufschlüsselung unter Jahresübersicht).
-  const jahr = new Date().getFullYear()
-  const einnahmenJahr = (rechnungen ?? [])
-    .filter((r) => r.zahlungsstatus === 'bezahlt' && r.erstelltAm.slice(0, 4) === String(jahr))
-    .reduce((sum, r) => sum + rechnungTotals(r.positionen, r.ustSatz).netto, 0)
-  const ausgabenJahr = (ausgaben ?? []).filter((a) => a.datum.slice(0, 4) === String(jahr)).reduce((sum, a) => sum + a.betrag, 0)
-  const gewinnJahr = einnahmenJahr - ausgabenJahr
+  // Widget-Daten
+  const offeneKvas = (kvas ?? []).filter((k) => k.status !== 'angenommen' && k.status !== 'abgelehnt')
+  const offeneRechnungen = (rechnungen ?? []).filter((r) => r.zahlungsstatus !== 'bezahlt')
+  const aktiveProjekte = (projekte ?? []).filter((p) => p.status === 'aktiv')
+  const projektDeadlineById = new Map(
+    (deadlines ?? [])
+      .filter((d) => d.bezugTyp === 'projekt' && !d.erledigt)
+      .map((d) => [d.bezugId, d.faelligkeitsdatum]),
+  )
+  const zeitHeute = (zeiteintraege ?? []).filter((z) => z.datum === today && !z.laeuft)
+  const offeneTodos = (todos ?? []).filter((t) => !t.erledigt)
 
-  const tiles = [
-    { to: '/bewerbungen', label: 'Bewerbungen offen', value: bewerbungenOffen },
-    { to: '/projekte', label: 'Aktive Projekte', value: projekteAktiv },
-    { to: '/kva', label: 'KVAs offen', value: kvaOffenCount },
-    { to: '/rechnungen', label: 'Rechnungen offen', value: rechnungenOffen },
-    { to: '/deadlines', label: 'Deadlines nächste 7 Tage', value: deadlinesBald },
-    { to: '/fokus', label: 'Fokus & To-Do', value: todosOffen },
-    { to: '/zeit', label: 'Zeiterfassung heute', value: heuteStunden?.toFixed(1).replace('.', ',') ?? '–' },
-    { to: '/statistiken', label: 'Statistiken', value: '📊' },
-    { to: '/ausgaben', label: 'Ausgaben', value: '🧾' },
-    { to: '/jahresuebersicht', label: 'Steuer (Gewinn ' + jahr + ')', value: formatEuro(gewinnJahr) },
-  ]
+  function projektName(id: number) {
+    return projekte?.find((p) => p.id === id)?.name ?? '–'
+  }
+
+  const kvaStatusLabel: Record<string, string> = { entwurf: 'Entwurf', gesendet: 'Gesendet', abgelehnt: 'Abgelehnt' }
 
   return (
     <div>
@@ -187,18 +116,10 @@ export default function Dashboard() {
           <div className="warn-title">
             {stufe === 'rot' ? '🔴 Stark überlastet heute' : '🟡 Hohe Auslastung heute'}
           </div>
-          <div>{heuteStunden?.toFixed(1).replace('.', ',')} Std. heute über alle Kunden/Projekte erfasst.</div>
+          <div>{heuteStunden.toFixed(1).replace('.', ',')} Std. heute über alle Kunden/Projekte erfasst.</div>
         </Link>
       )}
-      {!!deadlinesBald && deadlinesBald > 0 && (
-        <Link to="/deadlines" className="warn-banner">
-          <div className="warn-title">
-            ⏰ {deadlinesBald} Deadline{deadlinesBald > 1 ? 's' : ''} bald fällig
-          </div>
-          <div>In den nächsten 7 Tagen fällig und noch nicht erledigt.</div>
-        </Link>
-      )}
-      {!!rechnungenUeberfaellig && rechnungenUeberfaellig > 0 && (
+      {rechnungenUeberfaellig > 0 && (
         <Link to="/rechnungen" className="warn-banner">
           <div className="warn-title">
             💸 {rechnungenUeberfaellig} Rechnung{rechnungenUeberfaellig > 1 ? 'en' : ''} überfällig
@@ -206,7 +127,7 @@ export default function Dashboard() {
           <div>Fälligkeitsdatum bereits verstrichen, noch nicht als bezahlt markiert.</div>
         </Link>
       )}
-      {!!todosAlt && todosAlt > 0 && (
+      {todosAlt > 0 && (
         <Link to="/fokus" className="warn-banner">
           <div className="warn-title">
             📝 {todosAlt} To-Do{todosAlt > 1 ? 's' : ''} seit über einer Woche offen
@@ -215,32 +136,93 @@ export default function Dashboard() {
         </Link>
       )}
 
-      {!!offeneKvas && offeneKvas.length > 0 && (
-        <>
-          <div className="section-title">Offene KVAs</div>
-          <div className="list" style={{ marginBottom: 'var(--s4)' }}>
-            {offeneKvas.map((k) => (
-              <Link key={k.id} to={`/kva/${k.id}`} className="list-item">
-                <div className="list-title">{k.bezeichnung}</div>
-                <span className={`status-badge ${kvaStatusBadgeClass[k.status]}`}>{kvaStatusLabel[k.status]}</span>
-              </Link>
-            ))}
-          </div>
-        </>
-      )}
+      <CompactListWidget
+        icon={<DocumentIcon />}
+        title="KVAs offen"
+        count={offeneKvas.length}
+        to="/kva"
+        items={offeneKvas}
+        getKey={(k) => k.id!}
+        emptyText="Keine offenen KVAs."
+        renderItem={(k) => (
+          <>
+            <span>{k.bezeichnung || 'Ohne Titel'}</span>
+            <span className="widget-row-sub">{kvaStatusLabel[k.status] ?? k.status}</span>
+          </>
+        )}
+      />
 
-      <div className="tile-grid">
-        {tiles.map((t) => (
-          <Link key={t.label} to={t.to} className="tile">
-            <span className="tile-value">{t.value ?? '–'}</span>
-            <span className="tile-label">{t.label}</span>
-          </Link>
-        ))}
-        <div className="tile fokusmusik">
-          <FokusmusikToggle />
-          <span className="tile-label">Fokusmusik</span>
-        </div>
-      </div>
+      <CompactListWidget
+        icon={<LetterIcon />}
+        title="Rechnungen offen"
+        count={offeneRechnungen.length}
+        to="/rechnungen"
+        items={offeneRechnungen}
+        getKey={(r) => r.id!}
+        emptyText="Keine offenen Rechnungen."
+        renderItem={(r) => {
+          const { brutto } = rechnungTotals(r.positionen, r.ustSatz)
+          return (
+            <>
+              <span>{r.rechnungsnummer}</span>
+              <span className="widget-row-sub">{formatEuro(brutto)}</span>
+            </>
+          )
+        }}
+      />
+
+      <CompactListWidget
+        icon={<FolderIcon />}
+        title="Aktive Projekte"
+        count={aktiveProjekte.length}
+        to="/projekte"
+        items={aktiveProjekte}
+        getKey={(p) => p.id!}
+        emptyText="Keine aktiven Projekte."
+        renderItem={(p) => {
+          const deadline = projektDeadlineById.get(p.id!)
+          return (
+            <>
+              <span>{p.name}</span>
+              <span className="widget-row-sub">{deadline ? `bis ${formatDate(deadline)}` : p.nummer}</span>
+            </>
+          )
+        }}
+      />
+
+      <CompactListWidget
+        icon={<ClockIcon />}
+        title="Zeiterfassung heute"
+        count={zeitHeute.length}
+        to="/zeit"
+        items={zeitHeute}
+        getKey={(z) => z.id!}
+        emptyText="Noch keine Zeit heute erfasst."
+        renderItem={(z) => (
+          <>
+            <span>
+              {projektName(z.projektId)} · {z.rolle}
+            </span>
+            <span className="widget-row-sub">{formatDauer(z.dauerMinuten)}</span>
+          </>
+        )}
+      />
+
+      <CompactListWidget
+        icon={<CheckboxIcon />}
+        title="Fokus & To-Do"
+        count={offeneTodos.length}
+        to="/fokus"
+        items={offeneTodos}
+        getKey={(t) => t.id!}
+        emptyText="Keine offenen Aufgaben."
+        renderItem={(t) => (
+          <>
+            <span>{t.text}</span>
+            <span className="widget-row-sub">{t.geschaetzteMinuten ? `${t.geschaetzteMinuten} Min.` : ''}</span>
+          </>
+        )}
+      />
     </div>
   )
 }

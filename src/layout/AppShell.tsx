@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { NavLink, Link, Outlet } from 'react-router-dom'
 import { signOut } from '../auth/AuthGate'
+import { useSupabaseQuery } from '../db/useSupabaseQuery'
+import { deadlinesRepo } from '../db/repo'
+import { addDaysISO } from '../utils/format'
+import { ClockIcon } from '../components/icons'
+import FokusmusikHeaderToggle from '../components/FokusmusikHeaderToggle'
 import TimerWidget from '../timer/TimerWidget'
 
 // Zentraler "+"-Button: öffnet die Verwaltungsebene (Anlegen neuer Einträge),
@@ -10,12 +15,25 @@ const VERWALTUNG_OPTIONEN = [
   { to: '/agenturen/neu', label: 'Agentur & Ratecard' },
   { to: '/kunden/neu', label: 'Kunde' },
   { to: '/projekte/neu', label: 'Projekt' },
+  { to: '/bewerbungen/neu', label: 'Bewerbung' },
   { to: '/jahresuebersicht', label: 'Jahresübersicht (Steuer)' },
   { to: '/kva/neu', label: 'KVA' },
 ]
 
 export default function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false)
+
+  // Ersetzt die frühere große Deadline-Sektion auf dem Homescreen: kleines
+  // Uhr-Icon mit Warner-Badge (anstehende/überfällige, nicht erledigte
+  // Deadlines) global im Header, auf jeder Seite sichtbar.
+  const deadlinesCount = useSupabaseQuery(
+    ['deadlines'],
+    async () => {
+      const in7 = addDaysISO(7)
+      return (await deadlinesRepo.list()).filter((d) => !d.erledigt && d.faelligkeitsdatum <= in7).length
+    },
+    [],
+  )
 
   async function handleLogout() {
     if (confirm('Abmelden?')) {
@@ -25,10 +43,17 @@ export default function AppShell() {
 
   return (
     <div className="app-shell">
-      <div className="app-content">
-        <button type="button" className="logout-btn" onClick={handleLogout} aria-label="Abmelden">
+      <div className="global-header">
+        <FokusmusikHeaderToggle />
+        <Link to="/deadlines" className="header-icon-btn" aria-label="Deadlines">
+          <ClockIcon />
+          {!!deadlinesCount && deadlinesCount > 0 && <span className="header-badge">{deadlinesCount}</span>}
+        </Link>
+        <button type="button" className="header-icon-btn" onClick={handleLogout} aria-label="Abmelden">
           ⏻
         </button>
+      </div>
+      <div className="app-content">
         <Outlet />
       </div>
       <TimerWidget />

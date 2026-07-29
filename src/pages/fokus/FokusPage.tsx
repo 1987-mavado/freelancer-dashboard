@@ -7,7 +7,6 @@ import { formatDate } from '../../utils/format'
 import type { ToDo } from '../../db/types'
 import PageHeader from '../../layout/PageHeader'
 import GoogleCalendarWidget from './GoogleCalendarWidget'
-import FokusmusikToggle from './FokusmusikToggle'
 
 interface EditForm {
   text: string
@@ -115,7 +114,7 @@ export default function FokusPage() {
 
   return (
     <div>
-      <PageHeader title="Fokus &amp; To-Do" back={false} action={<FokusmusikToggle />} />
+      <PageHeader title="Fokus &amp; To-Do" back={false} />
 
       <GoogleCalendarWidget />
 

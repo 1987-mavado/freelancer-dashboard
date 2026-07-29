@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
-import { projekteRepo, kundenRepo, agenturenRepo } from '../../db/repo'
+import { projekteRepo, kundenRepo, agenturenRepo, deadlinesRepo } from '../../db/repo'
 import type { Projekt } from '../../db/types'
 import PageHeader from '../../layout/PageHeader'
 import { ensureRechnungFuerAbgeschlossenesProjekt } from '../../utils/rechnung'
+import { buildDeadlineTarget } from '../../utils/googleCalendar/eventBuilders'
+import { trySyncSingleEvent } from '../../utils/googleCalendar/singleSync'
 
 const emptyForm: Projekt = {
   kundeId: 0,
@@ -46,11 +48,54 @@ export default function ProjektDetail() {
     [],
   )
 
+  // Individuelle Deadline pro Job/Projekt (Ersatz für die frühere
+  // Homescreen-Deadline-Sektion, siehe Aktive-Projekte-Widget) — verlinkt
+  // über die bestehende deadlines-Tabelle statt eines eigenen Feldes.
+  const projektDeadline = useSupabaseQuery(
+    ['deadlines'],
+    async () => {
+      if (!projektId) return undefined
+      const alle = await deadlinesRepo.list()
+      return alle.find((d) => d.bezugTyp === 'projekt' && d.bezugId === projektId)
+    },
+    [projektId],
+  )
+
   const [form, setForm] = useState<Projekt>(emptyForm)
+  const [deadlineDatum, setDeadlineDatum] = useState('')
 
   useEffect(() => {
     if (existing) setForm(existing)
   }, [existing])
+
+  useEffect(() => {
+    setDeadlineDatum(projektDeadline?.faelligkeitsdatum ?? '')
+  }, [projektDeadline])
+
+  async function handleDeadlineChange(datum: string) {
+    setDeadlineDatum(datum)
+    if (!projektId) return
+    if (!datum) {
+      if (projektDeadline?.id) await deadlinesRepo.remove(projektDeadline.id)
+      return
+    }
+    if (projektDeadline?.id) {
+      await deadlinesRepo.update(projektDeadline.id, { faelligkeitsdatum: datum })
+      void trySyncSingleEvent(
+        buildDeadlineTarget({ ...projektDeadline, faelligkeitsdatum: datum }, form.name),
+      )
+    } else {
+      const neu = {
+        bezugTyp: 'projekt' as const,
+        bezugId: projektId,
+        bezeichnung: `Deadline: ${form.name || 'Projekt'}`,
+        faelligkeitsdatum: datum,
+        erledigt: false,
+      }
+      const newId = await deadlinesRepo.add(neu)
+      void trySyncSingleEvent(buildDeadlineTarget({ ...neu, id: newId }, form.name))
+    }
+  }
 
   async function handleSave() {
     if (!form.name.trim() || !form.kundeId) return
@@ -173,6 +218,18 @@ export default function ProjektDetail() {
             />
           </div>
         </div>
+        {!isNew && (
+          <div>
+            <label>Deadline (optional)</label>
+            <input
+              className="field"
+              type="date"
+              value={deadlineDatum}
+              onChange={(e) => handleDeadlineChange(e.target.value)}
+            />
+            <p className="muted">Erscheint im Aktive-Projekte-Widget auf der Übersicht.</p>
+          </div>
+        )}
         <button className="btn full" onClick={handleSave}>
           Speichern
         </button>
