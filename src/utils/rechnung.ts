@@ -85,6 +85,22 @@ export async function ensureRechnungFuerAbgeschlossenesProjekt(projektId: number
   return rechnungenRepo.add(rechnung)
 }
 
+// Für den Häkchen-Button in der Zeiterfassung: liefert die id einer noch
+// nicht bezahlten Rechnung für dieses Projekt (legt eine neue an, falls
+// keine offene existiert), damit erfasste Stunden dort übernommen werden
+// können. Anders als ensureRechnungFuerAbgeschlossenesProjekt (die nur beim
+// allerersten Projektabschluss greift) wird hier bewusst auch dann eine neue
+// Rechnung erzeugt, wenn frühere Rechnungen für das Projekt bereits bezahlt
+// sind — für neu angefallene, noch unabgerechnete Stunden.
+export async function ensureOffeneRechnungFuerProjekt(projektId: number): Promise<number> {
+  const alle = await rechnungenRepo.list()
+  const bestehende = alle.find((r) => r.projektId === projektId && r.zahlungsstatus !== 'bezahlt')
+  if (bestehende?.id) return bestehende.id
+  const nummer = await generateRechnungsnummer(projektId)
+  const rechnung = emptyRechnung(projektId, nummer)
+  return rechnungenRepo.add(rechnung)
+}
+
 export function rechnungTotals(positionen: RechnungPosition[], ustSatz: number) {
   const netto = positionen.reduce((sum, p) => sum + p.menge * p.einzelpreis, 0)
   const ustBetrag = netto * (ustSatz / 100)

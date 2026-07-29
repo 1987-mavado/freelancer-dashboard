@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { zeiteintraegeRepo, projekteRepo, ratecardsRepo } from '../../db/repo'
 import { useTimerContext } from '../../timer/TimerContext'
+import { ensureOffeneRechnungFuerProjekt } from '../../utils/rechnung'
 import PageHeader from '../../layout/PageHeader'
 import { formatDate, todayISO } from '../../utils/format'
 import { formatDauer, formatVerstrichen } from '../../utils/zeiterfassung'
@@ -31,6 +32,7 @@ function toEditForm(z: Zeiteintrag): ManualForm {
 }
 
 export default function ZeiterfassungPage() {
+  const navigate = useNavigate()
   const timer = useTimerContext()
   const zeiteintraege = useSupabaseQuery(
     ['zeiteintraege'],
@@ -45,6 +47,9 @@ export default function ZeiterfassungPage() {
   )
   const projekte = useSupabaseQuery(['projekte'], () => projekteRepo.list(), [])
   const ratecards = useSupabaseQuery(['ratecards'], () => ratecardsRepo.list(), [])
+  // Nur aktive (per KVA angenommene) Projekte sind als Job auswählbar —
+  // abgeschlossene/pausierte/akquise-Projekte tauchen hier nicht mehr auf.
+  const aktiveProjekte = (projekte ?? []).filter((p) => p.status === 'aktiv')
 
   const [manualOpen, setManualOpen] = useState(false)
   const [manual, setManual] = useState<ManualForm>(emptyManual())
@@ -53,6 +58,18 @@ export default function ZeiterfassungPage() {
 
   function projektName(id?: number) {
     return projekte?.find((p) => p.id === id)?.name ?? '–'
+  }
+
+  function jobLabel(id: number) {
+    const p = projekte?.find((x) => x.id === id)
+    if (!p) return '–'
+    return p.nummer ? `${p.nummer} – ${p.name}` : p.name
+  }
+
+  async function handleUebernehmen(z: Zeiteintrag) {
+    if (z.abgerechnet) return
+    const rechnungId = await ensureOffeneRechnungFuerProjekt(z.projektId)
+    navigate(`/rechnungen/${rechnungId}`)
   }
 
   function rollenOptionen(projektId: number | '') {
@@ -172,9 +189,9 @@ export default function ZeiterfassungPage() {
                       }
                     >
                       <option value="">– auswählen –</option>
-                      {projekte?.map((p) => (
+                      {aktiveProjekte.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name}
+                          {jobLabel(p.id!)}
                         </option>
                       ))}
                     </select>
@@ -246,8 +263,15 @@ export default function ZeiterfassungPage() {
                   {z.beschreibung ? ` · ${z.beschreibung}` : ''}
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
-                <span className="status-pill">{z.abgerechnet ? 'Abgerechnet' : 'Offen'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+                <span className={`status-badge ${z.abgerechnet ? 'green' : 'neutral'}`}>
+                  {z.abgerechnet ? 'Abgerechnet' : 'Offen'}
+                </span>
+                {!z.abgerechnet && (
+                  <button className="icon-btn" onClick={() => handleUebernehmen(z)} aria-label="In Rechnung übernehmen">
+                    ✓
+                  </button>
+                )}
                 <button className="icon-btn" onClick={() => startEdit(z)} aria-label="Bearbeiten">
                   ✎
                 </button>
@@ -271,12 +295,15 @@ export default function ZeiterfassungPage() {
               onChange={(e) => setManual((m) => ({ ...m, projektId: e.target.value ? Number(e.target.value) : '' }))}
             >
               <option value="">– auswählen –</option>
-              {projekte?.map((p) => (
+              {aktiveProjekte.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name}
+                  {jobLabel(p.id!)}
                 </option>
               ))}
             </select>
+            {aktiveProjekte.length === 0 && (
+              <p className="muted">Kein aktiver Job — erst eine KVA annehmen oder ein Projekt aktivieren.</p>
+            )}
           </div>
           <div>
             <label>Rolle</label>

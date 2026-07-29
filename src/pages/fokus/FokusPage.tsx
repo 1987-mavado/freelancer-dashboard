@@ -46,6 +46,9 @@ export default function FokusPage() {
   const projekte = useSupabaseQuery(['projekte'], () => projekteRepo.list(), [])
   const ratecards = useSupabaseQuery(['ratecards'], () => ratecardsRepo.list(), [])
   const zeiteintraege = useSupabaseQuery(['zeiteintraege'], () => zeiteintraegeRepo.list(), [])
+  // Nur aktive (per KVA angenommene) Projekte sind als abrechenbarer Job
+  // auswählbar.
+  const aktiveProjekte = (projekte ?? []).filter((p) => p.status === 'aktiv')
 
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState<EditForm>(emptyEditForm())
@@ -54,6 +57,12 @@ export default function FokusPage() {
 
   function projektName(id?: number | null) {
     return projekte?.find((p) => p.id === id)?.name ?? '–'
+  }
+
+  function jobLabel(id: number) {
+    const p = projekte?.find((x) => x.id === id)
+    if (!p) return '–'
+    return p.nummer ? `${p.nummer} – ${p.name}` : p.name
   }
 
   function rollenOptionen(projektId: number | '') {
@@ -144,9 +153,9 @@ export default function FokusPage() {
                       }
                     >
                       <option value="">– kein Projekt –</option>
-                      {projekte?.map((p) => (
+                      {aktiveProjekte.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name}
+                          {jobLabel(p.id!)}
                         </option>
                       ))}
                     </select>
