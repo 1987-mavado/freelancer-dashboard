@@ -70,6 +70,17 @@ export function CheckboxIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+// Bewerbungen
+export function BriefcaseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Svg {...props}>
+      <rect x={3} y={8} width={18} height={12} rx={1.5} />
+      <path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+      <path d="M3 13h18" />
+    </Svg>
+  )
+}
+
 // Fokusmusik (Header-Toggle)
 export function SpeakerIcon({ an, ...props }: SVGProps<SVGSVGElement> & { an?: boolean }) {
   return (

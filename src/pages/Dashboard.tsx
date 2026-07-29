@@ -9,6 +9,7 @@ import {
   deadlinesRepo,
   todosRepo,
   zeiteintraegeRepo,
+  bewerbungenRepo,
 } from '../db/repo'
 import { addDaysISO, todayISO, formatEuro, formatDate } from '../utils/format'
 import { tagesstunden, auslastungsStufe, formatDauer } from '../utils/zeiterfassung'
@@ -16,7 +17,14 @@ import { rechnungTotals } from '../utils/rechnung'
 import { berechneFinanzen, nettoTrendWochen, nettoTrendMonateJahr } from '../utils/finanzen'
 import LineChart from '../components/LineChart'
 import CompactListWidget from '../components/CompactListWidget'
-import { DocumentIcon, LetterIcon, FolderIcon, ClockIcon, CheckboxIcon } from '../components/icons'
+import { DocumentIcon, LetterIcon, FolderIcon, ClockIcon, CheckboxIcon, BriefcaseIcon } from '../components/icons'
+import type { BewerbungStatus } from '../db/types'
+
+const bewerbungStatusLabel: Record<BewerbungStatus, string> = {
+  anschreiben_raus: 'Anschreiben raus',
+  call: 'Call/Gespräch',
+  zusage: 'Zusage',
+}
 
 type Zeitraum = 'monat' | 'jahr'
 
@@ -29,6 +37,7 @@ export default function Dashboard() {
   const deadlines = useSupabaseQuery(['deadlines'], () => deadlinesRepo.list(), [])
   const todos = useSupabaseQuery(['todos'], () => todosRepo.list(), [])
   const zeiteintraege = useSupabaseQuery(['zeiteintraege'], () => zeiteintraegeRepo.list(), [])
+  const bewerbungen = useSupabaseQuery(['bewerbungen'], () => bewerbungenRepo.list(), [])
 
   // Erinnerungen (bleiben als bedingte Hinweis-Banner bestehen — nur die
   // separate große Deadline-Sektion ist entfallen, siehe globaler Header).
@@ -65,6 +74,7 @@ export default function Dashboard() {
   )
   const zeitHeute = (zeiteintraege ?? []).filter((z) => z.datum === today && !z.laeuft)
   const offeneTodos = (todos ?? []).filter((t) => !t.erledigt)
+  const offeneBewerbungen = (bewerbungen ?? []).filter((b) => !b.archiviert)
 
   function projektName(id: number) {
     return projekte?.find((p) => p.id === id)?.name ?? '–'
@@ -217,6 +227,22 @@ export default function Dashboard() {
           <>
             <span>{t.text}</span>
             <span className="widget-row-sub">{t.geschaetzteMinuten ? `${t.geschaetzteMinuten} Min.` : ''}</span>
+          </>
+        )}
+      />
+
+      <CompactListWidget
+        icon={<BriefcaseIcon />}
+        title="Bewerbungen"
+        count={offeneBewerbungen.length}
+        to="/bewerbungen"
+        items={offeneBewerbungen}
+        getKey={(b) => b.id!}
+        emptyText="Keine offenen Bewerbungen."
+        renderItem={(b) => (
+          <>
+            <span>{b.firma}</span>
+            <span className="widget-row-sub">{bewerbungStatusLabel[b.status]}</span>
           </>
         )}
       />
