@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { bewerbungenRepo } from '../../db/repo'
 import PageHeader from '../../layout/PageHeader'
@@ -18,12 +18,20 @@ const statusLabel: Record<BewerbungStatus, string> = {
 }
 
 export default function BewerbungenList() {
+  const navigate = useNavigate()
   const [showArchiv, setShowArchiv] = useState(false)
   const bewerbungen = useSupabaseQuery(
     ['bewerbungen'],
     async () => (await bewerbungenRepo.list()).filter((b) => b.archiviert === showArchiv),
     [showArchiv],
   )
+
+  async function handleDelete(e: React.MouseEvent, id?: number) {
+    e.stopPropagation()
+    if (!id) return
+    if (!confirm('Bewerbung wirklich löschen?')) return
+    await bewerbungenRepo.remove(id)
+  }
 
   return (
     <div>
@@ -38,7 +46,7 @@ export default function BewerbungenList() {
       </div>
       <div className="list">
         {bewerbungen?.map((b) => (
-          <Link key={b.id} to={`/bewerbungen/${b.id}`} className="list-item">
+          <div key={b.id} className="list-item" onClick={() => navigate(`/bewerbungen/${b.id}`)}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
               <span className={`badge ${statusBadge[b.status]}`} />
               <div>
@@ -46,8 +54,13 @@ export default function BewerbungenList() {
                 <div className="list-sub">{b.rolle}</div>
               </div>
             </div>
-            <span className="status-pill">{statusLabel[b.status]}</span>
-          </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
+              <span className="status-pill">{statusLabel[b.status]}</span>
+              <button className="icon-btn" onClick={(e) => handleDelete(e, b.id)} aria-label="Löschen">
+                ✕
+              </button>
+            </div>
+          </div>
         ))}
         {bewerbungen?.length === 0 && (
           <div className="empty">{showArchiv ? 'Keine archivierten Bewerbungen.' : 'Noch keine Bewerbungen.'}</div>

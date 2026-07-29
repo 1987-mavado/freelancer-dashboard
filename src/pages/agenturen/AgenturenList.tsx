@@ -1,9 +1,10 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { agenturenRepo } from '../../db/repo'
 import PageHeader from '../../layout/PageHeader'
 
 export default function AgenturenList() {
+  const navigate = useNavigate()
   const agenturen = useSupabaseQuery(
     ['agenturen'],
     async () => {
@@ -14,18 +15,27 @@ export default function AgenturenList() {
     [],
   )
 
+  async function handleDelete(e: React.MouseEvent, id?: number) {
+    e.stopPropagation()
+    if (!id) return
+    if (!confirm('Agentur wirklich löschen? Verknüpfte Ratecards werden mitgelöscht.')) return
+    await agenturenRepo.remove(id)
+  }
+
   return (
     <div>
       <PageHeader title="Agenturen" />
       <div className="list">
         {agenturen?.map((a) => (
-          <Link key={a.id} to={`/agenturen/${a.id}`} className="list-item">
+          <div key={a.id} className="list-item" onClick={() => navigate(`/agenturen/${a.id}`)}>
             <div>
               <div className="list-title">{a.name}</div>
               {a.kontaktpersonen && <div className="list-sub">{a.kontaktpersonen}</div>}
             </div>
-            <span className="muted">›</span>
-          </Link>
+            <button className="icon-btn" onClick={(e) => handleDelete(e, a.id)} aria-label="Löschen">
+              ✕
+            </button>
+          </div>
         ))}
         {agenturen?.length === 0 && <div className="empty">Noch keine Agenturen angelegt.</div>}
       </div>

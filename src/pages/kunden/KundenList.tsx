@@ -1,9 +1,10 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { kundenRepo, agenturenRepo } from '../../db/repo'
 import PageHeader from '../../layout/PageHeader'
 
 export default function KundenList() {
+  const navigate = useNavigate()
   const kunden = useSupabaseQuery(
     ['kunden'],
     async () => {
@@ -20,18 +21,27 @@ export default function KundenList() {
     return agenturen?.find((a) => a.id === agenturId)?.name ?? 'Direktkunde'
   }
 
+  async function handleDelete(e: React.MouseEvent, id?: number) {
+    e.stopPropagation()
+    if (!id) return
+    if (!confirm('Kunde wirklich löschen?')) return
+    await kundenRepo.remove(id)
+  }
+
   return (
     <div>
       <PageHeader title="Kunden" />
       <div className="list">
         {kunden?.map((k) => (
-          <Link key={k.id} to={`/kunden/${k.id}`} className="list-item">
+          <div key={k.id} className="list-item" onClick={() => navigate(`/kunden/${k.id}`)}>
             <div>
               <div className="list-title">{k.name}</div>
               <div className="list-sub">{agenturName(k.agenturId)}</div>
             </div>
-            <span className="muted">›</span>
-          </Link>
+            <button className="icon-btn" onClick={(e) => handleDelete(e, k.id)} aria-label="Löschen">
+              ✕
+            </button>
+          </div>
         ))}
         {kunden?.length === 0 && <div className="empty">Noch keine Kunden angelegt.</div>}
       </div>
