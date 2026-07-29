@@ -177,6 +177,21 @@ export interface Zeiteintrag {
   erstelltAm: string
 }
 
+// Ausgaben-Erfassung: Betriebsausgaben mit fester Kategorie und optionalem
+// Beleg-Upload (Foto/PDF, als URL in Supabase Storage im Bucket "belege").
+// Fließt in die Jahresübersicht (Steuer) als Gegenstück zu den Einnahmen ein.
+export type AusgabeKategorie = 'software' | 'buero_material' | 'reisekosten' | 'marketing' | 'sonstiges'
+
+export interface Ausgabe {
+  id?: number
+  datum: string
+  kategorie: AusgabeKategorie
+  betrag: number
+  beschreibung: string
+  belegUrl: string
+  erstelltAm: string
+}
+
 export type CalendarEntityTyp = 'deadline' | 'rechnung' | 'projekt' | 'kva' | 'bewerbung'
 
 export interface CalendarSyncMap {

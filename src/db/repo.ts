@@ -3,6 +3,7 @@ import { appToRow, makeRepo, rowToApp } from './supa'
 import { notify } from './queryBus'
 import type {
   Agentur,
+  Ausgabe,
   Bewerbung,
   CalendarSyncMap,
   Deadline,
@@ -31,6 +32,7 @@ export const deadlinesRepo = makeRepo<Deadline>('deadlines')
 export const todosRepo = makeRepo<ToDo>('todos')
 export const calendarSyncMapRepo = makeRepo<CalendarSyncMap>('calendar_sync_map')
 export const zeiteintraegeRepo = makeRepo<Zeiteintrag>('zeiteintraege')
+export const ausgabenRepo = makeRepo<Ausgabe>('ausgaben')
 
 // Konkrete Werte aus den Anforderungsunterlagen als Vorbelegung, damit eine
 // frisch aufgesetzte Stammdaten-Zeile nicht mit leeren Pflichtfeldern für

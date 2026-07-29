@@ -20,6 +20,7 @@ import FokusPage from './pages/fokus/FokusPage'
 import ZeiterfassungPage from './pages/zeiterfassung/ZeiterfassungPage'
 import StatistikenPage from './pages/statistiken/StatistikenPage'
 import JahresuebersichtPage from './pages/steuer/JahresuebersichtPage'
+import AusgabenList from './pages/ausgaben/AusgabenList'
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
             <Route path="/zeit" element={<ZeiterfassungPage />} />
             <Route path="/statistiken" element={<StatistikenPage />} />
             <Route path="/jahresuebersicht" element={<JahresuebersichtPage />} />
+            <Route path="/ausgaben" element={<AusgabenList />} />
           </Route>
         </Routes>
       </BrowserRouter>

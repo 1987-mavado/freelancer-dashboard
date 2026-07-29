@@ -1,9 +1,18 @@
 import { useState } from 'react'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
-import { rechnungenRepo } from '../../db/repo'
+import { rechnungenRepo, ausgabenRepo } from '../../db/repo'
 import PageHeader from '../../layout/PageHeader'
 import { rechnungTotals } from '../../utils/rechnung'
 import { formatEuro, formatDate } from '../../utils/format'
+import type { AusgabeKategorie } from '../../db/types'
+
+const kategorieLabel: Record<AusgabeKategorie, string> = {
+  software: 'Software',
+  buero_material: 'Büro & Material',
+  reisekosten: 'Reisekosten',
+  marketing: 'Marketing',
+  sonstiges: 'Sonstiges',
+}
 
 const MONATSNAMEN = [
   'Januar',
@@ -22,20 +31,30 @@ const MONATSNAMEN = [
 
 export default function JahresuebersichtPage() {
   const rechnungen = useSupabaseQuery(['rechnungen'], () => rechnungenRepo.list(), [])
+  const ausgaben = useSupabaseQuery(['ausgaben'], () => ausgabenRepo.list(), [])
 
   const aktuellesJahr = new Date().getFullYear()
   const [jahr, setJahr] = useState(aktuellesJahr)
 
   // Auswahlbare Jahre: alle Jahre, in denen mindestens eine bezahlte
-  // Rechnung erstellt wurde, plus immer das aktuelle Jahr.
+  // Rechnung erstellt oder eine Ausgabe erfasst wurde, plus immer das
+  // aktuelle Jahr.
   const verfuegbareJahre = Array.from(
     new Set([
       aktuellesJahr,
       ...(rechnungen ?? [])
         .filter((r) => r.zahlungsstatus === 'bezahlt')
         .map((r) => Number(r.erstelltAm.slice(0, 4))),
+      ...(ausgaben ?? []).map((a) => Number(a.datum.slice(0, 4))),
     ]),
   ).sort((a, b) => b - a)
+
+  const ausgabenImJahr = (ausgaben ?? []).filter((a) => a.datum.slice(0, 4) === String(jahr))
+  const ausgabenGesamt = ausgabenImJahr.reduce((sum, a) => sum + a.betrag, 0)
+  const ausgabenProKategorie = (Object.keys(kategorieLabel) as AusgabeKategorie[]).map((k) => ({
+    kategorie: k,
+    summe: ausgabenImJahr.filter((a) => a.kategorie === k).reduce((sum, a) => sum + a.betrag, 0),
+  }))
 
   // Diese Übersicht berücksichtigt nur als "bezahlt" markierte Rechnungen
   // (= tatsächliche Einnahmen), gruppiert nach Erstelldatum der Rechnung —
@@ -73,8 +92,9 @@ export default function JahresuebersichtPage() {
     <div>
       <PageHeader title="Jahresübersicht" />
       <p className="muted">
-        Übersicht der als „bezahlt" markierten Rechnungen für die jährliche Steuererklärung — z.B. zum Weitergeben
-        an deinen Steuerberater. Ersetzt keine Steuerberatung; Ausgaben werden hier nicht erfasst.
+        Übersicht der als „bezahlt" markierten Rechnungen und der erfassten Ausgaben für die jährliche
+        Steuererklärung — z.B. zum Weitergeben an deinen Steuerberater. Ersetzt keine Steuerberatung; der
+        „Gewinn" ist eine einfache Näherung (Einnahmen netto minus Ausgaben), keine vollständige EÜR.
       </p>
 
       <div style={{ marginBottom: 'var(--s4)' }}>
@@ -88,10 +108,10 @@ export default function JahresuebersichtPage() {
         </select>
       </div>
 
-      <div className="row" style={{ marginBottom: 'var(--s4)' }}>
+      <div className="row" style={{ marginBottom: 'var(--s3)' }}>
         <div className="kpi">
           <div className="kpi-value">{formatEuro(gesamt.netto)}</div>
-          <div className="kpi-label">Netto gesamt</div>
+          <div className="kpi-label">Einnahmen (netto)</div>
         </div>
         <div className="kpi">
           <div className="kpi-value">{formatEuro(gesamt.ustBetrag)}</div>
@@ -99,7 +119,17 @@ export default function JahresuebersichtPage() {
         </div>
         <div className="kpi">
           <div className="kpi-value">{formatEuro(gesamt.brutto)}</div>
-          <div className="kpi-label">Brutto gesamt</div>
+          <div className="kpi-label">Einnahmen (brutto)</div>
+        </div>
+      </div>
+      <div className="row" style={{ marginBottom: 'var(--s4)' }}>
+        <div className="kpi">
+          <div className="kpi-value">{formatEuro(ausgabenGesamt)}</div>
+          <div className="kpi-label">Ausgaben gesamt</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-value">{formatEuro(gesamt.netto - ausgabenGesamt)}</div>
+          <div className="kpi-label">Gewinn (netto − Ausgaben)</div>
         </div>
       </div>
 
@@ -153,6 +183,31 @@ export default function JahresuebersichtPage() {
                   <td>{formatEuro(totals.brutto)}</td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="section-title">Ausgaben {jahr} nach Kategorie</div>
+      <div className="card">
+        {ausgabenGesamt === 0 && <div className="empty">Keine Ausgaben in diesem Jahr erfasst.</div>}
+        {ausgabenGesamt > 0 && (
+          <table className="calc-table">
+            <thead>
+              <tr>
+                <th>Kategorie</th>
+                <th>Summe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ausgabenProKategorie
+                .filter((k) => k.summe > 0)
+                .map((k) => (
+                  <tr key={k.kategorie}>
+                    <td>{kategorieLabel[k.kategorie]}</td>
+                    <td>{formatEuro(k.summe)}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         )}

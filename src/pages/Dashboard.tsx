@@ -96,6 +96,7 @@ export default function Dashboard() {
     { to: '/fokus', label: 'Fokus-Timer', value: '25/5' },
     { to: '/fokus', label: 'To-Do', value: todosOffen },
     { to: '/statistiken', label: 'Statistiken', value: '📊' },
+    { to: '/ausgaben', label: 'Ausgaben', value: '🧾' },
   ]
 
   return (
