@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { rechnungenRepo, projekteRepo, kundenRepo, getStammdaten, zeiteintraegeRepo, ratecardsRepo } from '../../db/repo'
-import type { Rechnung, RechnungPosition, Zahlungsstatus } from '../../db/types'
+import type { Rechnung, RechnungPosition } from '../../db/types'
 import PageHeader from '../../layout/PageHeader'
 import { emptyRechnung, generateRechnungsnummer, rechnungTotals } from '../../utils/rechnung'
 import { formatEuro, uid } from '../../utils/format'
@@ -312,21 +312,6 @@ export default function RechnungDetail() {
           <p className="muted">Erscheint in der Überschrift: „{titel}"</p>
         </div>
 
-        <div className="row">
-          <div>
-            <label>Zahlungsstatus</label>
-            <select
-              className="field"
-              value={form.zahlungsstatus}
-              onChange={(e) => save({ ...form, zahlungsstatus: e.target.value as Zahlungsstatus })}
-            >
-              <option value="offen">Offen</option>
-              <option value="bezahlt">Bezahlt</option>
-              <option value="ueberfaellig">Überfällig</option>
-            </select>
-          </div>
-        </div>
-
         <div>
           <label>Rechnungsanschrift</label>
           <textarea
@@ -520,6 +505,30 @@ export default function RechnungDetail() {
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
             <span>Brutto</span>
             <span>{formatEuro(brutto)}</span>
+          </div>
+        </div>
+
+        <div>
+          <label>Zahlungsstatus</label>
+          <div className="row">
+            <button
+              className={`btn small ${form.zahlungsstatus === 'offen' ? '' : 'ghost'}`}
+              onClick={() => save({ ...form, zahlungsstatus: 'offen' })}
+            >
+              Offen
+            </button>
+            <button
+              className={`btn small ${form.zahlungsstatus === 'bezahlt' ? '' : 'ghost'}`}
+              onClick={() => save({ ...form, zahlungsstatus: 'bezahlt' })}
+            >
+              Bezahlt
+            </button>
+            <button
+              className={`btn small ${form.zahlungsstatus === 'ueberfaellig' ? '' : 'ghost'}`}
+              onClick={() => save({ ...form, zahlungsstatus: 'ueberfaellig' })}
+            >
+              Überfällig
+            </button>
           </div>
         </div>
 

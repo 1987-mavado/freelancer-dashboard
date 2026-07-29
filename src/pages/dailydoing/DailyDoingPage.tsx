@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import ProjekteList from '../projekte/ProjekteList'
 import ZeiterfassungPage from '../zeiterfassung/ZeiterfassungPage'
 import FokusPage from '../fokus/FokusPage'
@@ -13,12 +14,19 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'bewerbungen', label: 'Bewerbungen' },
 ]
 
+function istTab(value: string | null): value is Tab {
+  return TABS.some((t) => t.key === value)
+}
+
 // Bündelt die Bereiche des täglichen Arbeitens (bisher einzeln über
 // "Projekte" erreichbar bzw. verstreut) unter einem gemeinsamen Bottom-Nav-
 // Eintrag. Jeder Tab rendert die jeweils bestehende, unveränderte Seite —
-// keine Logik dupliziert.
+// keine Logik dupliziert. Der Start-Tab kann per "?tab=zeit" o.ä. vorgewählt
+// werden (siehe Homescreen-Widgets, die gezielt auf einen Tab verlinken).
 export default function DailyDoingPage() {
-  const [tab, setTab] = useState<Tab>('projekte')
+  const [searchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab')
+  const [tab, setTab] = useState<Tab>(istTab(initialTab) ? initialTab : 'projekte')
 
   return (
     <div>

@@ -182,7 +182,7 @@ export default function Dashboard() {
         icon={<FolderIcon />}
         title="Aktive Projekte"
         count={aktiveProjekte.length}
-        to="/projekte"
+        to="/daily-doing?tab=projekte"
         items={aktiveProjekte}
         getKey={(p) => p.id!}
         emptyText="Keine aktiven Projekte."
@@ -201,7 +201,7 @@ export default function Dashboard() {
         icon={<ClockIcon />}
         title="Zeiterfassung heute"
         count={zeitHeute.length}
-        to="/zeit"
+        to="/daily-doing?tab=zeit"
         items={zeitHeute}
         getKey={(z) => z.id!}
         emptyText="Noch keine Zeit heute erfasst."
@@ -219,7 +219,7 @@ export default function Dashboard() {
         icon={<CheckboxIcon />}
         title="Fokus & To-Do"
         count={offeneTodos.length}
-        to="/fokus"
+        to="/daily-doing?tab=fokus"
         items={offeneTodos}
         getKey={(t) => t.id!}
         emptyText="Keine offenen Aufgaben."
