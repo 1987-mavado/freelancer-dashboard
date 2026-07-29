@@ -52,18 +52,16 @@ export interface CalendarEventSummary {
   allDay: boolean
 }
 
-export async function listUpcomingEvents(
+// Roher Event-Abruf für einen beliebigen Zeitraum — Basis sowohl für
+// `listUpcomingEvents` (nächste Termine, offenes Ende) als auch für die
+// Wochenübersicht in der Deadlines-Ansicht (fester Zeitraum).
+async function listEventsRaw(
   accessToken: string,
   calendarId: string,
-  maxResults = 6,
+  params: Record<string, string>,
 ): Promise<CalendarEventSummary[]> {
-  const params = new URLSearchParams({
-    timeMin: new Date().toISOString(),
-    singleEvents: 'true',
-    orderBy: 'startTime',
-    maxResults: String(maxResults),
-  })
-  const res = await fetch(`${BASE_URL}/${encodeURIComponent(calendarId)}/events?${params.toString()}`, {
+  const query = new URLSearchParams({ singleEvents: 'true', orderBy: 'startTime', ...params })
+  const res = await fetch(`${BASE_URL}/${encodeURIComponent(calendarId)}/events?${query.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) throw new Error(`Kalendereinträge konnten nicht geladen werden: ${await parseErrorMessage(res)}`)
@@ -79,6 +77,28 @@ export async function listUpcomingEvents(
     start: it.start?.dateTime ?? it.start?.date,
     allDay: !it.start?.dateTime,
   }))
+}
+
+export async function listUpcomingEvents(
+  accessToken: string,
+  calendarId: string,
+  maxResults = 6,
+): Promise<CalendarEventSummary[]> {
+  return listEventsRaw(accessToken, calendarId, {
+    timeMin: new Date().toISOString(),
+    maxResults: String(maxResults),
+  })
+}
+
+// Termine in einem festen Zeitfenster (z.B. eine Kalenderwoche) — für die
+// Wochenübersicht in der Deadlines-Ansicht.
+export async function listEventsBetween(
+  accessToken: string,
+  calendarId: string,
+  timeMin: string,
+  timeMax: string,
+): Promise<CalendarEventSummary[]> {
+  return listEventsRaw(accessToken, calendarId, { timeMin, timeMax, maxResults: '50' })
 }
 
 export async function deleteEvent(accessToken: string, calendarId: string, eventId: string): Promise<void> {

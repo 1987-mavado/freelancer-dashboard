@@ -6,6 +6,7 @@ import { formatDate, todayISO } from '../../utils/format'
 import type { Deadline, DeadlineBezugTyp } from '../../db/types'
 import { buildDeadlineTarget } from '../../utils/googleCalendar/eventBuilders'
 import { trySyncSingleEvent } from '../../utils/googleCalendar/singleSync'
+import DeadlineWeekCalendar from './DeadlineWeekCalendar'
 
 const emptyForm: Deadline = {
   bezeichnung: '',
@@ -170,6 +171,8 @@ export default function DeadlinesList() {
         ))}
         {deadlines?.length === 0 && <div className="empty">Keine Deadlines angelegt.</div>}
       </div>
+
+      <DeadlineWeekCalendar />
 
       {!formOpen && (
         <button className="fab" onClick={() => setFormOpen(true)} aria-label="Deadline hinzufügen">
