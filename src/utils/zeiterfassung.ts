@@ -56,8 +56,9 @@ export function minutenZuStunden(minuten: number): number {
   return minuten / 60
 }
 
-// Montag der Kalenderwoche, die `datumISO` enthält (als YYYY-MM-DD).
-function montagDerWoche(datumISO: string): string {
+// Montag der Kalenderwoche, die `datumISO` enthält (als YYYY-MM-DD). Exportiert,
+// da auch die Statistik-Seite Zeiteinträge wochenweise gruppieren muss.
+export function montagDerWoche(datumISO: string): string {
   const d = new Date(`${datumISO}T00:00:00`)
   const tag = d.getDay() // 0 = Sonntag, 1 = Montag, ... 6 = Samstag
   const diffZuMontag = tag === 0 ? -6 : 1 - tag

@@ -534,3 +534,83 @@ table.calc-table th {
   text-decoration: line-through;
   color: var(--muted);
 }
+
+/* ---------- Statistiken ---------- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s3);
+  margin-bottom: var(--s3);
+}
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--s4);
+}
+
+.kpi .kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.kpi .kpi-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.bar-row .bar-label {
+  width: 64px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bar-row .bar-track {
+  flex: 1;
+  height: 18px;
+  background: var(--surface-2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.bar-row .bar-fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--accent);
+  border-radius: 6px;
+}
+
+.bar-row .bar-fill.orange {
+  background: var(--orange);
+}
+
+.bar-row .bar-fill.yellow {
+  background: var(--yellow);
+}
+
+.bar-row .bar-fill.green {
+  background: var(--green);
+}
+
+.bar-row .bar-value {
+  width: 76px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
