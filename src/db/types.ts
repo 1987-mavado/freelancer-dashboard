@@ -228,6 +228,18 @@ export interface Ausgabe {
   erstelltAm: string
 }
 
+// Ressourcenplanung: geplante (nicht zwingend schon erfasste) Personentage/
+// -stunden je Projekt+Rolle an einem bestimmten Tag — Grundlage für den
+// Planungskalender im Ressourcentool (siehe RessourcenKalender.tsx).
+export interface Ressourcenplan {
+  id?: number
+  projektId: number
+  rolle: string
+  datum: string
+  geplanteStunden: number
+  erstelltAm: string
+}
+
 export type CalendarEntityTyp = 'deadline' | 'rechnung' | 'projekt' | 'kva' | 'bewerbung' | 'todo'
 
 export interface CalendarSyncMap {

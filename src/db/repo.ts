@@ -12,6 +12,7 @@ import type {
   Projekt,
   Ratecard,
   Rechnung,
+  Ressourcenplan,
   Stammdaten,
   ToDo,
   Zeiteintrag,
@@ -33,6 +34,7 @@ export const todosRepo = makeRepo<ToDo>('todos')
 export const calendarSyncMapRepo = makeRepo<CalendarSyncMap>('calendar_sync_map')
 export const zeiteintraegeRepo = makeRepo<Zeiteintrag>('zeiteintraege')
 export const ausgabenRepo = makeRepo<Ausgabe>('ausgaben')
+export const ressourcenplanRepo = makeRepo<Ressourcenplan>('ressourcenplan')
 
 // Konkrete Werte aus den Anforderungsunterlagen als Vorbelegung, damit eine
 // frisch aufgesetzte Stammdaten-Zeile nicht mit leeren Pflichtfeldern für

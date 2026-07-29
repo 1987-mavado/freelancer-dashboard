@@ -5,6 +5,7 @@ import { ensureRechnungFuerAbgeschlossenesProjekt } from '../../utils/rechnung'
 import { computeKva } from '../../utils/kva'
 import { minutenZuStunden } from '../../utils/zeiterfassung'
 import PageHeader from '../../layout/PageHeader'
+import RessourcenKalender from './RessourcenKalender'
 
 export default function RessourcenPage() {
   const navigate = useNavigate()
@@ -86,6 +87,17 @@ export default function RessourcenPage() {
         })}
         {projekte?.length === 0 && <div className="empty">Keine Projekte in der Ressourcenplanung.</div>}
       </div>
+
+      {projekte && projekte.length > 0 && (
+        <>
+          <div className="section-title">Planungskalender</div>
+          <p className="muted">
+            Personentage/-stunden je Projekt und Rolle auf Tage verteilen — unabhängig von der tatsächlichen
+            Zeiterfassung. Tag anklicken, um Einträge zu sehen oder zu ergänzen.
+          </p>
+          <RessourcenKalender projekte={projekte} />
+        </>
+      )}
     </div>
   )
 }
