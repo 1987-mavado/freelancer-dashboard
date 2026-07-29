@@ -23,6 +23,7 @@ import StatistikenPage from './pages/statistiken/StatistikenPage'
 import JahresuebersichtPage from './pages/steuer/JahresuebersichtPage'
 import AusgabenList from './pages/ausgaben/AusgabenList'
 import RessourcenPage from './pages/ressourcen/RessourcenPage'
+import FinanzenPage from './pages/finanzen/FinanzenPage'
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
               <Route path="/jahresuebersicht" element={<JahresuebersichtPage />} />
               <Route path="/ausgaben" element={<AusgabenList />} />
               <Route path="/ressourcen" element={<RessourcenPage />} />
+              <Route path="/finanzen" element={<FinanzenPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

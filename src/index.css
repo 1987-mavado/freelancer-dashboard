@@ -197,6 +197,27 @@ a {
   font-size: 20px;
 }
 
+.nav-plus-slot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-plus {
+  width: 52px;
+  height: 52px;
+  margin-top: -28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
 /* ---------- Dashboard tiles ---------- */
 .tile-grid {
   display: grid;
