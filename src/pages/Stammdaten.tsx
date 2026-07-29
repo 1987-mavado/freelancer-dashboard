@@ -316,6 +316,10 @@ export default function Stammdaten() {
             <span className="list-title">Projekte</span>
             <span className="muted">›</span>
           </Link>
+          <Link to="/jahresuebersicht" className="list-item">
+            <span className="list-title">Jahresübersicht (Steuer)</span>
+            <span className="muted">›</span>
+          </Link>
         </div>
       </div>
     </div>

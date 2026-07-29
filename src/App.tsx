@@ -19,6 +19,7 @@ import DeadlinesList from './pages/deadlines/DeadlinesList'
 import FokusPage from './pages/fokus/FokusPage'
 import ZeiterfassungPage from './pages/zeiterfassung/ZeiterfassungPage'
 import StatistikenPage from './pages/statistiken/StatistikenPage'
+import JahresuebersichtPage from './pages/steuer/JahresuebersichtPage'
 
 function App() {
   return (
@@ -44,6 +45,7 @@ function App() {
             <Route path="/fokus" element={<FokusPage />} />
             <Route path="/zeit" element={<ZeiterfassungPage />} />
             <Route path="/statistiken" element={<StatistikenPage />} />
+            <Route path="/jahresuebersicht" element={<JahresuebersichtPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
