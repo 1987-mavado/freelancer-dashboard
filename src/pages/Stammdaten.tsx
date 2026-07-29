@@ -259,6 +259,11 @@ export default function Stammdaten() {
           Projekt-Zeiträume, KVA-Erstelldaten und To-Dos mit Fälligkeitsdatum. Erledigte/gelöschte Einträge
           werden im Kalender automatisch entfernt.
         </p>
+        <p className="muted">
+          Dieselbe Client-ID wird auch für den Rechnungsversand per E-Mail (Gmail) auf der Rechnungs-Seite
+          verwendet — dafür in der Google-Cloud-Konsole zusätzlich die Gmail API aktivieren und den Scope
+          „gmail.send" freigeben.
+        </p>
         <div>
           <label>Google Client-ID</label>
           <input

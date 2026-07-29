@@ -8,6 +8,7 @@ import { emptyRechnung, generateRechnungsnummer, rechnungTotals } from '../../ut
 import { formatEuro, uid } from '../../utils/format'
 import { rateFor } from '../../utils/kva'
 import { formatDauer, minutenZuStunden } from '../../utils/zeiterfassung'
+import RechnungMailButton from './RechnungMailButton'
 
 type LegacyFeld = 'empfaengerName' | 'empfaengerStrasse' | 'empfaengerPlz' | 'empfaengerOrt' | 'empfaengerLand' | 'leitwegId' | 'bestellnummer' | 'taetigkeit'
 type LegacyRechnung = Omit<Rechnung, LegacyFeld> & Partial<Pick<Rechnung, LegacyFeld>>
@@ -534,6 +535,8 @@ export default function RechnungDetail() {
         <button className="btn ghost full" onClick={handleExportZugferd} disabled={exportingZugferd}>
           {exportingZugferd ? 'ZUGFeRD-PDF wird erstellt…' : 'Als ZUGFeRD-PDF exportieren'}
         </button>
+
+        {stammdaten && <RechnungMailButton rechnung={form} stammdaten={stammdaten} />}
 
         <button className="btn danger full" onClick={handleDelete}>
           Rechnung löschen
