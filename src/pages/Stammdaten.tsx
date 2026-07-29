@@ -109,7 +109,7 @@ export default function Stammdaten() {
 
   return (
     <div>
-      <PageHeader title="Stammdaten" back={false} />
+      <PageHeader title="Einstellungen" back={false} />
       <div className="stack">
         <div>
           <label>Name</label>

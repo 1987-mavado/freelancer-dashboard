@@ -317,24 +317,26 @@ export default function KvaDetail() {
             </select>
           </div>
           {ratecard && (
-            <table className="calc-table">
-              <thead>
-                <tr>
-                  <th>Rolle</th>
-                  <th>Std.-Satz</th>
-                  <th>Tagessatz</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ratecard.zeilen.map((z) => (
-                  <tr key={z.id}>
-                    <td>{z.rolle}</td>
-                    <td>{formatEuro(z.stundensatz)}</td>
-                    <td>{formatEuro(z.tagessatz)}</td>
+            <div className="card">
+              <table className="calc-table">
+                <thead>
+                  <tr>
+                    <th>Rolle</th>
+                    <th>Std.-Satz</th>
+                    <th>Tagessatz</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {ratecard.zeilen.map((z) => (
+                    <tr key={z.id}>
+                      <td>{z.rolle}</td>
+                      <td>{formatEuro(z.stundensatz)}</td>
+                      <td>{formatEuro(z.tagessatz)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <button className="btn danger full" onClick={handleDelete}>
             KVA löschen
@@ -411,42 +413,46 @@ export default function KvaDetail() {
       {tab === 'ausgabe' && (
         <div className="stack">
           <div className="section-title">Phasensummen</div>
-          <table className="calc-table">
-            <thead>
-              <tr>
-                <th>Phase</th>
-                <th>Summe</th>
-              </tr>
-            </thead>
-            <tbody>
-              {computed.phasenSummen.map((p) => (
-                <tr key={p.phaseId}>
-                  <td>{p.bezeichnung || '(ohne Titel)'}</td>
-                  <td>{formatEuro(p.summe)}</td>
+          <div className="card">
+            <table className="calc-table">
+              <thead>
+                <tr>
+                  <th>Phase</th>
+                  <th>Summe</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {computed.phasenSummen.map((p) => (
+                  <tr key={p.phaseId}>
+                    <td>{p.bezeichnung || '(ohne Titel)'}</td>
+                    <td>{formatEuro(p.summe)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <div className="section-title">Aufschlüsselung nach Rolle</div>
-          <table className="calc-table">
-            <thead>
-              <tr>
-                <th>Rolle</th>
-                <th>Stunden</th>
-                <th>Summe</th>
-              </tr>
-            </thead>
-            <tbody>
-              {computed.rollenAufschluesselung.map((r) => (
-                <tr key={r.rolle}>
-                  <td>{r.rolle}</td>
-                  <td>{r.stunden}</td>
-                  <td>{formatEuro(r.summe)}</td>
+          <div className="card">
+            <table className="calc-table">
+              <thead>
+                <tr>
+                  <th>Rolle</th>
+                  <th>Stunden</th>
+                  <th>Summe</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {computed.rollenAufschluesselung.map((r) => (
+                  <tr key={r.rolle}>
+                    <td>{r.rolle}</td>
+                    <td>{r.stunden}</td>
+                    <td>{formatEuro(r.summe)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <div className="card" style={{ display: 'flex', justifyContent: 'space-between' }}>
             <strong>Kontrollsumme</strong>

@@ -5,7 +5,7 @@ import { bewerbungenRepo } from '../../db/repo'
 import PageHeader from '../../layout/PageHeader'
 import type { BewerbungStatus } from '../../db/types'
 
-const statusBadge: Record<BewerbungStatus, string> = {
+const statusBadgeClass: Record<BewerbungStatus, string> = {
   anschreiben_raus: 'orange',
   call: 'yellow',
   zusage: 'green',
@@ -36,26 +36,23 @@ export default function BewerbungenList() {
   return (
     <div>
       <PageHeader title="Bewerbungen" />
-      <div className="row" style={{ marginBottom: 'var(--s4)' }}>
-        <button className={`btn ${showArchiv ? 'ghost' : ''}`} onClick={() => setShowArchiv(false)}>
+      <div className="tab-bar">
+        <button className={!showArchiv ? 'active' : ''} onClick={() => setShowArchiv(false)}>
           Aktiv
         </button>
-        <button className={`btn ${!showArchiv ? 'ghost' : ''}`} onClick={() => setShowArchiv(true)}>
+        <button className={showArchiv ? 'active' : ''} onClick={() => setShowArchiv(true)}>
           Archiviert
         </button>
       </div>
       <div className="list">
         {bewerbungen?.map((b) => (
           <div key={b.id} className="list-item" onClick={() => navigate(`/bewerbungen/${b.id}`)}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
-              <span className={`badge ${statusBadge[b.status]}`} />
-              <div>
-                <div className="list-title">{b.firma}</div>
-                <div className="list-sub">{b.rolle}</div>
-              </div>
+            <div>
+              <div className="list-title">{b.firma}</div>
+              <div className="list-sub">{b.rolle}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
-              <span className="status-pill">{statusLabel[b.status]}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s2)' }}>
+              <span className={`status-badge ${statusBadgeClass[b.status]}`}>{statusLabel[b.status]}</span>
               <button className="icon-btn" onClick={(e) => handleDelete(e, b.id)} aria-label="Löschen">
                 ✕
               </button>

@@ -15,10 +15,17 @@ const projektStatusLabel: Record<ProjektStatus, string> = {
   abgeschlossen: 'Abgeschlossen',
 }
 
-const rechnungStatusColor: Record<Zahlungsstatus, string> = {
-  offen: 'yellow',
+const projektStatusBadgeClass: Record<ProjektStatus, string> = {
+  akquise: 'neutral',
+  aktiv: 'orange',
+  pausiert: 'yellow',
+  abgeschlossen: 'green',
+}
+
+const rechnungStatusBadgeClass: Record<Zahlungsstatus, string> = {
+  offen: 'orange',
   bezahlt: 'green',
-  ueberfaellig: 'orange',
+  ueberfaellig: 'red',
 }
 
 const rechnungStatusLabel: Record<Zahlungsstatus, string> = {
@@ -157,7 +164,9 @@ export default function KundeDetail() {
                   <div className="list-title">{p.name}</div>
                   <div className="list-sub">{p.nummer}</div>
                 </div>
-                <span className="status-pill">{projektStatusLabel[p.status]}</span>
+                <span className={`status-badge ${projektStatusBadgeClass[p.status]}`}>
+                  {projektStatusLabel[p.status]}
+                </span>
               </Link>
             ))}
             {projekte?.length === 0 && <div className="empty">Noch keine Projekte mit diesem Kunden.</div>}
@@ -184,16 +193,15 @@ export default function KundeDetail() {
               const { brutto } = rechnungTotals(r.positionen, r.ustSatz)
               return (
                 <Link key={r.id} to={`/rechnungen/${r.id}`} className="list-item">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
-                    <span className={`badge ${rechnungStatusColor[r.zahlungsstatus]}`} />
-                    <div>
-                      <div className="list-title">{r.rechnungsnummer}</div>
-                      <div className="list-sub">
-                        {formatEuro(brutto)} · fällig {formatDate(r.faelligkeitsdatum)}
-                      </div>
+                  <div>
+                    <div className="list-title">{r.rechnungsnummer}</div>
+                    <div className="list-sub">
+                      {formatEuro(brutto)} · fällig {formatDate(r.faelligkeitsdatum)}
                     </div>
                   </div>
-                  <span className="status-pill">{rechnungStatusLabel[r.zahlungsstatus]}</span>
+                  <span className={`status-badge ${rechnungStatusBadgeClass[r.zahlungsstatus]}`}>
+                    {rechnungStatusLabel[r.zahlungsstatus]}
+                  </span>
                 </Link>
               )
             })}
