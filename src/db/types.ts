@@ -180,7 +180,17 @@ export interface Zeiteintrag {
 // Ausgaben-Erfassung: Betriebsausgaben mit fester Kategorie und optionalem
 // Beleg-Upload (Foto/PDF, als URL in Supabase Storage im Bucket "belege").
 // Fließt in die Jahresübersicht (Steuer) als Gegenstück zu den Einnahmen ein.
-export type AusgabeKategorie = 'software' | 'buero_material' | 'reisekosten' | 'marketing' | 'sonstiges'
+export type AusgabeKategorie =
+  | 'software'
+  | 'buero_material'
+  | 'reisekosten'
+  | 'marketing'
+  | 'bewirtung'
+  | 'sonstiges'
+
+// Anlass für Bewirtungsbelege (Kategorie "bewirtung"), z.B. für die
+// Dokumentationspflichten des Finanzamts bei Geschäftsessen.
+export type BewirtungAnlass = 'bewerbung' | 'kundenakquise' | 'sonstiges'
 
 export interface Ausgabe {
   id?: number
@@ -189,6 +199,10 @@ export interface Ausgabe {
   betrag: number
   beschreibung: string
   belegUrl: string
+  // Nur relevant/befüllt bei kategorie === 'bewirtung'.
+  bewirtungTeilnehmer: string
+  bewirtungLokal: string
+  bewirtungAnlass: BewirtungAnlass | ''
   erstelltAm: string
 }
 

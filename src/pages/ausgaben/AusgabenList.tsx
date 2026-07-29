@@ -4,17 +4,24 @@ import { ausgabenRepo } from '../../db/repo'
 import { supabase } from '../../db/supabaseClient'
 import PageHeader from '../../layout/PageHeader'
 import { formatEuro, formatDate, todayISO } from '../../utils/format'
-import type { Ausgabe, AusgabeKategorie } from '../../db/types'
+import type { Ausgabe, AusgabeKategorie, BewirtungAnlass } from '../../db/types'
 
 const kategorieLabel: Record<AusgabeKategorie, string> = {
   software: 'Software',
   buero_material: 'Büro & Material',
   reisekosten: 'Reisekosten',
   marketing: 'Marketing',
+  bewirtung: 'Bewirtung/Geschäftsessen',
   sonstiges: 'Sonstiges',
 }
 
 const kategorien = Object.keys(kategorieLabel) as AusgabeKategorie[]
+
+const anlassLabel: Record<BewirtungAnlass, string> = {
+  bewerbung: 'Bewerbungsgespräch',
+  kundenakquise: 'Kundenakquise',
+  sonstiges: 'Sonstiges',
+}
 
 function emptyForm(): Ausgabe {
   return {
@@ -23,6 +30,9 @@ function emptyForm(): Ausgabe {
     betrag: 0,
     beschreibung: '',
     belegUrl: '',
+    bewirtungTeilnehmer: '',
+    bewirtungLokal: '',
+    bewirtungAnlass: '',
     erstelltAm: new Date().toISOString(),
   }
 }
@@ -129,15 +139,76 @@ export default function AusgabenList() {
               placeholder="z.B. Adobe Creative Cloud Abo"
             />
           </div>
+
+          {form.kategorie === 'bewirtung' && (
+            <>
+              <p className="muted">
+                Für Bewirtungsbelege verlangt das Finanzamt diese Angaben zusätzlich zum Beleg.
+              </p>
+              <div>
+                <label>Teilnehmer (vollständige Namen)</label>
+                <input
+                  className="field"
+                  value={form.bewirtungTeilnehmer}
+                  onChange={(e) => setForm((f) => ({ ...f, bewirtungTeilnehmer: e.target.value }))}
+                  placeholder="z.B. Max Mustermann (Firma XY), ich selbst"
+                />
+              </div>
+              <div>
+                <label>Lokal (Name &amp; Adresse)</label>
+                <input
+                  className="field"
+                  value={form.bewirtungLokal}
+                  onChange={(e) => setForm((f) => ({ ...f, bewirtungLokal: e.target.value }))}
+                  placeholder="z.B. Ristorante Roma, Musterstraße 1, 80333 München"
+                />
+              </div>
+              <div>
+                <label>Anlass</label>
+                <select
+                  className="field"
+                  value={form.bewirtungAnlass}
+                  onChange={(e) => setForm((f) => ({ ...f, bewirtungAnlass: e.target.value as BewirtungAnlass | '' }))}
+                >
+                  <option value="">– auswählen –</option>
+                  {(Object.keys(anlassLabel) as BewirtungAnlass[]).map((a) => (
+                    <option key={a} value={a}>
+                      {anlassLabel[a]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
           <div>
             <label>Beleg (Foto/PDF, optional)</label>
-            <input
-              className="field"
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={(e) => setBelegFile(e.target.files?.[0] ?? null)}
-              disabled={uploading}
-            />
+            <div className="row">
+              <input
+                id="beleg-kamera"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => setBelegFile(e.target.files?.[0] ?? null)}
+                disabled={uploading}
+                style={{ display: 'none' }}
+              />
+              <label htmlFor="beleg-kamera" className="btn ghost full" style={{ textAlign: 'center', margin: 0 }}>
+                📷 Foto aufnehmen
+              </label>
+              <input
+                id="beleg-datei"
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => setBelegFile(e.target.files?.[0] ?? null)}
+                disabled={uploading}
+                style={{ display: 'none' }}
+              />
+              <label htmlFor="beleg-datei" className="btn ghost full" style={{ textAlign: 'center', margin: 0 }}>
+                Datei auswählen
+              </label>
+            </div>
+            {belegFile && <p className="muted">Ausgewählt: {belegFile.name}</p>}
             {uploadError && <p className="error">Fehler beim Hochladen: {uploadError}</p>}
           </div>
           <div className="row">
@@ -177,6 +248,13 @@ export default function AusgabenList() {
                   </>
                 )}
               </div>
+              {a.kategorie === 'bewirtung' && (a.bewirtungTeilnehmer || a.bewirtungLokal || a.bewirtungAnlass) && (
+                <div className="list-sub">
+                  {a.bewirtungTeilnehmer && `Mit: ${a.bewirtungTeilnehmer}`}
+                  {a.bewirtungLokal && ` · ${a.bewirtungLokal}`}
+                  {a.bewirtungAnlass && ` · ${anlassLabel[a.bewirtungAnlass]}`}
+                </div>
+              )}
             </div>
             <button className="icon-btn" onClick={() => handleDelete(a.id)} aria-label="Löschen">
               ✕

@@ -11,6 +11,7 @@ const kategorieLabel: Record<AusgabeKategorie, string> = {
   buero_material: 'Büro & Material',
   reisekosten: 'Reisekosten',
   marketing: 'Marketing',
+  bewirtung: 'Bewirtung/Geschäftsessen',
   sonstiges: 'Sonstiges',
 }
 
