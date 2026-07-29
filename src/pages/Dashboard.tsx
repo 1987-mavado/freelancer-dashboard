@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSupabaseQuery } from '../db/useSupabaseQuery'
 import {
@@ -13,7 +14,17 @@ import {
 import { addDaysISO, todayISO } from '../utils/format'
 import { wochenstunden } from '../utils/zeiterfassung'
 
+const NEU_OPTIONEN = [
+  { to: '/kunden/neu', label: 'Kunde' },
+  { to: '/agenturen/neu', label: 'Agentur' },
+  { to: '/projekte/neu', label: 'Projekt' },
+  { to: '/bewerbungen/neu', label: 'Bewerbung' },
+  { to: '/kva/neu', label: 'KVA' },
+  { to: '/rechnungen/neu', label: 'Rechnung' },
+]
+
 export default function Dashboard() {
+  const [menuOpen, setMenuOpen] = useState(false)
   const bewerbungenOffen = useSupabaseQuery(
     ['bewerbungen'],
     async () => (await bewerbungenRepo.list()).filter((b) => !b.archiviert).length,
@@ -90,6 +101,23 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+
+      <button className="fab" onClick={() => setMenuOpen(true)} aria-label="Neu anlegen">
+        +
+      </button>
+
+      {menuOpen && (
+        <>
+          <div className="action-sheet-backdrop" onClick={() => setMenuOpen(false)} />
+          <div className="action-sheet">
+            {NEU_OPTIONEN.map((o) => (
+              <Link key={o.to} to={o.to} onClick={() => setMenuOpen(false)}>
+                {o.label}
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

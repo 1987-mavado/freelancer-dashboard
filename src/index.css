@@ -347,6 +347,49 @@ label {
   font-size: 13px;
 }
 
+/* ---------- Action-Sheet (z.B. zentrales "Neu anlegen"-Menü) ---------- */
+.action-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 20;
+}
+
+.action-sheet {
+  position: fixed;
+  left: var(--s4);
+  right: var(--s4);
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  z-index: 21;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.action-sheet a,
+.action-sheet button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--s4);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.action-sheet a:last-child,
+.action-sheet button:last-child {
+  border-bottom: none;
+}
+
 .list {
   display: flex;
   flex-direction: column;
