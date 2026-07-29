@@ -58,6 +58,7 @@ export default function KvaDetail() {
   const [exportingPdf, setExportingPdf] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveErrorMessage, setSaveErrorMessage] = useState('')
 
   // `existing` kommt aus useSupabaseQuery und wird nicht nur beim Laden neu
   // geliefert, sondern auch jedes Mal, wenn `save()` unten selbst schreibt
@@ -89,11 +90,17 @@ export default function KvaDetail() {
     setSaveState('saving')
     try {
       await kvasRepo.put(next as Kva & { id: number })
-      if (seq === saveSeqRef.current) setSaveState('saved')
+      if (seq === saveSeqRef.current) {
+        setSaveState('saved')
+        setSaveErrorMessage('')
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('KVA speichern fehlgeschlagen', err)
-      if (seq === saveSeqRef.current) setSaveState('error')
+      if (seq === saveSeqRef.current) {
+        setSaveState('error')
+        setSaveErrorMessage(err instanceof Error ? err.message : String(err))
+      }
     }
   }
 
@@ -259,7 +266,7 @@ export default function KvaDetail() {
           <div className="row" style={{ alignItems: 'center', gap: 'var(--s2)' }}>
             {saveState === 'saving' && <span className="muted">Speichert…</span>}
             {saveState === 'saved' && <span className="muted">Gespeichert</span>}
-            {saveState === 'error' && <span className="error">Fehler beim Speichern</span>}
+            {saveState === 'error' && <span className="error">Fehler beim Speichern: {saveErrorMessage}</span>}
             <button className="btn small" onClick={() => form && save(form)}>
               Speichern
             </button>
@@ -279,6 +286,12 @@ export default function KvaDetail() {
             </option>
           ))}
         </select>
+        {saveState === 'error' && (
+          <p className="error" style={{ marginTop: 'var(--s2)' }}>
+            Status konnte nicht gespeichert werden: {saveErrorMessage}
+            {saveErrorMessage.toLowerCase().includes('check') && ' — vermutlich fehlt noch Migration 0014.'}
+          </p>
+        )}
       </div>
       <div className="row" style={{ marginBottom: 'var(--s4)' }}>
         <button className={`btn small ${tab === 'ratecard' ? '' : 'ghost'}`} onClick={() => setTab('ratecard')}>
