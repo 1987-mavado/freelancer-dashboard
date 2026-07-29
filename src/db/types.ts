@@ -51,11 +51,7 @@ export interface Kunde {
   agenturId?: number
 }
 
-// "ressourcenplanung": Job-Pipeline-Zwischenstufe, sobald eine KVA für dieses
-// Projekt angenommen wurde — im Ressourcentool werden dort die tatsächlich
-// verbrauchten Stunden bestätigt, bevor das Projekt auf "abgeschlossen"
-// wechselt (und wie gewohnt automatisch eine Rechnung entsteht).
-export type ProjektStatus = 'akquise' | 'aktiv' | 'ressourcenplanung' | 'pausiert' | 'abgeschlossen'
+export type ProjektStatus = 'akquise' | 'aktiv' | 'pausiert' | 'abgeschlossen'
 
 export interface Projekt {
   id?: number
@@ -100,7 +96,7 @@ export interface KvaPhase {
   zeilen: KvaZeile[]
 }
 
-export type KvaStatus = 'entwurf' | 'angenommen'
+export type KvaStatus = 'entwurf' | 'gesendet' | 'angenommen' | 'abgelehnt'
 
 export interface Kva {
   id?: number
@@ -225,18 +221,6 @@ export interface Ausgabe {
   bewirtungTeilnehmer: string
   bewirtungLokal: string
   bewirtungAnlass: BewirtungAnlass | ''
-  erstelltAm: string
-}
-
-// Ressourcenplanung: geplante (nicht zwingend schon erfasste) Personentage/
-// -stunden je Projekt+Rolle an einem bestimmten Tag — Grundlage für den
-// Planungskalender im Ressourcentool (siehe RessourcenKalender.tsx).
-export interface Ressourcenplan {
-  id?: number
-  projektId: number
-  rolle: string
-  datum: string
-  geplanteStunden: number
   erstelltAm: string
 }
 

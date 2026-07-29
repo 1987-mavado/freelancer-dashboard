@@ -2,10 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
 import { kvasRepo, projekteRepo, ratecardsRepo, kundenRepo, getStammdaten } from '../../db/repo'
-import type { Kva, KvaPhase, KvaZeile } from '../../db/types'
+import type { Kva, KvaPhase, KvaStatus, KvaZeile } from '../../db/types'
 import PageHeader from '../../layout/PageHeader'
 import { computeKva } from '../../utils/kva'
+import { kvaAnnehmen } from '../../utils/kvaWorkflow'
 import { formatEuro, uid } from '../../utils/format'
+
+const statusLabel: Record<KvaStatus, string> = {
+  entwurf: 'Entwurf',
+  gesendet: 'Gesendet',
+  angenommen: 'Angenommen',
+  abgelehnt: 'Abgelehnt',
+}
 
 type Tab = 'ratecard' | 'phasen' | 'ausgabe'
 
@@ -98,30 +106,26 @@ export default function KvaDetail() {
   }
 
   async function handleDelete() {
-    if (!kvaId) return
-    if (!confirm('KVA wirklich löschen?')) return
+    if (!kvaId || !form) return
+    const frage =
+      form.status !== 'entwurf'
+        ? 'Dieser KVA wurde bereits versendet — wirklich endgültig löschen?'
+        : 'KVA wirklich löschen?'
+    if (!confirm(frage)) return
     await kvasRepo.remove(kvaId)
     navigate('/kva', { replace: true })
   }
 
-  // Job-Pipeline: KVA annehmen → Projekt wechselt in die Ressourcenplanung,
-  // wo die tatsächlich verbrauchten Stunden bestätigt werden (siehe
-  // RessourcenPage.tsx). Von dort geht es automatisch weiter zur Rechnung.
+  // Vereinfachter Flow ohne Ressourcentool: Projekt wird direkt abrechenbar,
+  // bekommt bei Bedarf automatisch eine Jobnummer (siehe kvaWorkflow.ts).
   async function handleAnnehmen() {
     if (!form?.id) return
-    if (!confirm('KVA als angenommen markieren? Das Projekt wechselt dann in die Ressourcenplanung.')) return
+    if (!confirm('KVA als angenommen markieren? Das Projekt wird direkt abrechenbar.')) return
     try {
-      const next: Kva & { id: number } = { ...form, id: form.id, status: 'angenommen' }
-      setForm(next)
-      await kvasRepo.put(next)
-      await projekteRepo.update(form.projektId, { status: 'ressourcenplanung' })
-      navigate('/ressourcen')
+      await kvaAnnehmen(form as Kva & { id: number })
+      setForm({ ...form, status: 'angenommen' })
     } catch (err) {
-      alert(
-        'KVA annehmen fehlgeschlagen: ' +
-          (err instanceof Error ? err.message : String(err)) +
-          '\n\nWurden alle Datenbank-Migrationen (0011, 0012) bereits ausgeführt?',
-      )
+      alert('KVA annehmen fehlgeschlagen: ' + (err instanceof Error ? err.message : String(err)))
     }
   }
 
@@ -262,8 +266,19 @@ export default function KvaDetail() {
           </div>
         }
       />
-      <div style={{ marginBottom: 'var(--s4)' }}>
-        <span className="status-pill">{form.status === 'angenommen' ? 'Angenommen' : 'Entwurf'}</span>
+      <div style={{ marginBottom: 'var(--s4)', maxWidth: 200 }}>
+        <label>Status</label>
+        <select
+          className="field"
+          value={form.status}
+          onChange={(e) => save({ ...form, status: e.target.value as KvaStatus })}
+        >
+          {(Object.keys(statusLabel) as KvaStatus[]).map((s) => (
+            <option key={s} value={s}>
+              {statusLabel[s]}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="row" style={{ marginBottom: 'var(--s4)' }}>
         <button className={`btn small ${tab === 'ratecard' ? '' : 'ghost'}`} onClick={() => setTab('ratecard')}>
@@ -447,16 +462,16 @@ export default function KvaDetail() {
 
           {form.status !== 'angenommen' && (
             <button className="btn full" onClick={handleAnnehmen}>
-              KVA annehmen → Ressourcenplanung
+              ✓ KVA annehmen
             </button>
           )}
           {form.status === 'angenommen' && (
             <p className="muted">
-              Angenommen — Stunden werden im{' '}
-              <a href="#/ressourcen" onClick={(e) => { e.preventDefault(); navigate('/ressourcen') }}>
-                Ressourcentool
+              Angenommen — Projekt ist abrechenbar, Stunden werden in der{' '}
+              <a href="#/zeit" onClick={(e) => { e.preventDefault(); navigate('/zeit') }}>
+                Zeiterfassung
               </a>{' '}
-              erfasst und bestätigt.
+              erfasst.
             </p>
           )}
         </div>

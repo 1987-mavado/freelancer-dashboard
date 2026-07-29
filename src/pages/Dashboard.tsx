@@ -86,7 +86,6 @@ export default function Dashboard() {
     { to: '/fokus', label: 'To-Do', value: todosOffen },
     { to: '/statistiken', label: 'Statistiken', value: '📊' },
     { to: '/ausgaben', label: 'Ausgaben', value: '🧾' },
-    { to: '/ressourcen', label: 'Ressourcenplanung', value: '🛠' },
   ]
 
   return (

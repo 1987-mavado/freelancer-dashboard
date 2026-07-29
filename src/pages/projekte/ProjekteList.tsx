@@ -7,7 +7,6 @@ import type { ProjektStatus } from '../../db/types'
 const statusLabel: Record<ProjektStatus, string> = {
   akquise: 'Akquise',
   aktiv: 'Aktiv',
-  ressourcenplanung: 'Ressourcenplanung',
   pausiert: 'Pausiert',
   abgeschlossen: 'Abgeschlossen',
 }
