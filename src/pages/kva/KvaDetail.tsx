@@ -110,9 +110,19 @@ export default function KvaDetail() {
   async function handleAnnehmen() {
     if (!form?.id) return
     if (!confirm('KVA als angenommen markieren? Das Projekt wechselt dann in die Ressourcenplanung.')) return
-    await save({ ...form, status: 'angenommen' })
-    await projekteRepo.update(form.projektId, { status: 'ressourcenplanung' })
-    navigate('/ressourcen')
+    try {
+      const next: Kva & { id: number } = { ...form, id: form.id, status: 'angenommen' }
+      setForm(next)
+      await kvasRepo.put(next)
+      await projekteRepo.update(form.projektId, { status: 'ressourcenplanung' })
+      navigate('/ressourcen')
+    } catch (err) {
+      alert(
+        'KVA annehmen fehlgeschlagen: ' +
+          (err instanceof Error ? err.message : String(err)) +
+          '\n\nWurden alle Datenbank-Migrationen (0011, 0012) bereits ausgeführt?',
+      )
+    }
   }
 
   if (isNew || !form) {
