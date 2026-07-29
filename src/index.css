@@ -218,11 +218,62 @@ a {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
+/* ---------- Finanz-Header (Homescreen) ---------- */
+.finance-header {
+  margin-bottom: var(--s4);
+}
+
+.finance-header-main {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  margin-bottom: var(--s3);
+}
+
+.finance-value {
+  font-size: 32px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.finance-chart {
+  flex: 1;
+  min-width: 0;
+}
+
+.finance-substats {
+  display: flex;
+  gap: var(--s4);
+}
+
+.finance-substat-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.finance-substat.red .finance-substat-value {
+  color: var(--bad);
+}
+
+.finance-substat.green .finance-substat-value {
+  color: var(--green);
+}
+
+.finance-substat-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ---------- Dashboard tiles ---------- */
 .tile-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--s3);
+}
+
+.tile.fokusmusik {
+  cursor: default;
+  align-items: center;
 }
 
 .warn-banner {
