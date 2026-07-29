@@ -50,7 +50,7 @@ export default function ProjekteList() {
 
   return (
     <div>
-      <PageHeader title="Projekte" />
+      <PageHeader title="Projekte" back={false} />
       <div className="list">
         {projekte?.map((p) => (
           <div key={p.id} className="list-item" onClick={() => navigate(`/projekte/${p.id}`)}>

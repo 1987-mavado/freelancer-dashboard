@@ -255,9 +255,46 @@ a {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-/* ---------- Finanz-Header (Homescreen) ---------- */
+/* ---------- Finanz-Header (Homescreen + Finanzen-Tab) ---------- */
 .finance-header {
   margin-bottom: var(--s4);
+}
+
+.finance-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s2);
+}
+
+.finance-header-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: var(--s2);
+}
+
+.finance-toggle {
+  display: inline-flex;
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.finance-toggle button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.finance-toggle button.active {
+  background: var(--primary);
+  color: var(--primary-contrast);
 }
 
 .finance-header-main {

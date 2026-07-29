@@ -35,7 +35,7 @@ export default function BewerbungenList() {
 
   return (
     <div>
-      <PageHeader title="Bewerbungen" />
+      <PageHeader title="Bewerbungen" back={false} />
       <div className="tab-bar">
         <button className={!showArchiv ? 'active' : ''} onClick={() => setShowArchiv(false)}>
           Aktiv

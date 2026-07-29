@@ -1,10 +1,24 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { zeiteintraegeRepo, todosRepo } from '../db/repo'
-import { starteTimer, stoppeTimer } from '../utils/zeiterfassung'
+import { starteTimer, stoppeTimer, kumulierteMinutenFuerTodo } from '../utils/zeiterfassung'
 import { playRing } from '../utils/sound'
 import type { Zeiteintrag, ToDo } from '../db/types'
 
 const PAUSE_SEKUNDEN = 5 * 60
+// Feste Pomodoro-Struktur: ein Arbeitsblock dauert immer maximal 25 Minuten,
+// unabhängig von der geschätzten Gesamtdauer der Aufgabe. Ist von der
+// Schätzung noch weniger als 25 Minuten übrig, ist der Block entsprechend
+// kürzer (z.B. die letzten 5 Minuten einer 30-Minuten-Aufgabe).
+const ARBEIT_BLOCK_SEKUNDEN = 25 * 60
+
+// Wie viele Minuten von der Schätzung einer Aufgabe noch nicht durch bereits
+// abgeschlossene Zeiteinträge (frühere Blöcke) "verbraucht" sind.
+async function restMinutenFuerTodo(todo: ToDo, ausschlussEintragId?: number): Promise<number> {
+  const alle = await zeiteintraegeRepo.list()
+  const relevante = ausschlussEintragId ? alle.filter((z) => z.id !== ausschlussEintragId) : alle
+  const erledigt = kumulierteMinutenFuerTodo(relevante, todo.id!)
+  return Math.max(1, todo.geschaetzteMinuten - erledigt)
+}
 
 export type TimerPhase = 'idle' | 'arbeit' | 'pause-bereit' | 'pause-laeuft'
 
@@ -32,6 +46,9 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [laufenderEintrag, setLaufenderEintrag] = useState<Zeiteintrag | null>(null)
   const [laufendesTodo, setLaufendesTodo] = useState<ToDo | null>(null)
   const [restSekundenArbeit, setRestSekundenArbeit] = useState(0)
+  // Zielsekunden des GERADE laufenden Arbeitsblocks (max. 25 Min, siehe
+  // ARBEIT_BLOCK_SEKUNDEN) — unabhängig von der Gesamt-Schätzung der Aufgabe.
+  const [blockSekunden, setBlockSekunden] = useState(0)
   const [pauseStart, setPauseStart] = useState<number | null>(null)
   const [restSekundenPause, setRestSekundenPause] = useState(PAUSE_SEKUNDEN)
 
@@ -47,7 +64,14 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       setLaufenderEintrag(laufend)
       if (laufend.todoId) {
         const todo = await todosRepo.get(laufend.todoId)
-        if (todo) setLaufendesTodo(todo)
+        if (todo) {
+          setLaufendesTodo(todo)
+          // Block-Ziel neu ermitteln (derselbe Rest-Minuten-Block wie beim
+          // ursprünglichen Start, laufender Eintrag selbst zählt nicht als
+          // "bereits erledigt").
+          const rest = await restMinutenFuerTodo(todo, laufend.id)
+          setBlockSekunden(Math.min(ARBEIT_BLOCK_SEKUNDEN, rest * 60))
+        }
       }
       setPhase('arbeit')
       geklingeltRef.current = true // kein erneutes Klingeln nur wegen Neuladen der Seite
@@ -60,9 +84,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     const iv = window.setInterval(() => {
       if (phase === 'arbeit' && laufenderEintrag?.startZeit && laufendesTodo) {
         const start = new Date(laufenderEintrag.startZeit).getTime()
-        const zielSekunden = laufendesTodo.geschaetzteMinuten * 60
         const verstrichen = Math.floor((Date.now() - start) / 1000)
-        const rest = zielSekunden - verstrichen
+        const rest = blockSekunden - verstrichen
         setRestSekundenArbeit(rest)
         if (rest <= 0 && !geklingeltRef.current) {
           geklingeltRef.current = true
@@ -86,16 +109,19 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       }
     }, 1000)
     return () => clearInterval(iv)
-  }, [phase, laufenderEintrag, laufendesTodo, pauseStart])
+  }, [phase, laufenderEintrag, laufendesTodo, pauseStart, blockSekunden])
 
   async function start(todo: ToDo) {
     if (phase !== 'idle' || !todo.id || !todo.projektId || todo.geschaetzteMinuten <= 0) return
     geklingeltRef.current = false
+    const restMinuten = await restMinutenFuerTodo(todo)
+    const ziel = Math.min(ARBEIT_BLOCK_SEKUNDEN, restMinuten * 60)
     const id = await starteTimer(todo.projektId, todo.rolle || 'Allgemein', todo.id)
     const eintrag = await zeiteintraegeRepo.get(id)
     setLaufenderEintrag(eintrag ?? null)
     setLaufendesTodo(todo)
-    setRestSekundenArbeit(todo.geschaetzteMinuten * 60)
+    setBlockSekunden(ziel)
+    setRestSekundenArbeit(ziel)
     setPhase('arbeit')
   }
 

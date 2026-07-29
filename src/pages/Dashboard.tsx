@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSupabaseQuery } from '../db/useSupabaseQuery'
 import {
@@ -10,26 +11,17 @@ import {
   zeiteintraegeRepo,
 } from '../db/repo'
 import { addDaysISO, todayISO, formatEuro, formatDate } from '../utils/format'
-import { tagesstunden, auslastungsStufe, montagDerWoche, formatDauer } from '../utils/zeiterfassung'
+import { tagesstunden, auslastungsStufe, formatDauer } from '../utils/zeiterfassung'
 import { rechnungTotals } from '../utils/rechnung'
+import { berechneFinanzen, nettoTrendWochen, nettoTrendMonateJahr } from '../utils/finanzen'
 import LineChart from '../components/LineChart'
 import CompactListWidget from '../components/CompactListWidget'
 import { DocumentIcon, LetterIcon, FolderIcon, ClockIcon, CheckboxIcon } from '../components/icons'
 
-// Montags-Daten (YYYY-MM-DD) der letzten `anzahl` Kalenderwochen inkl. der
-// aktuellen, chronologisch aufsteigend — für den Finanz-Header-Trend.
-function letzteWochenMontage(anzahl: number): string[] {
-  const heuteMontag = montagDerWoche(todayISO())
-  const result: string[] = []
-  for (let i = anzahl - 1; i >= 0; i--) {
-    const d = new Date(`${heuteMontag}T00:00:00`)
-    d.setDate(d.getDate() - i * 7)
-    result.push(d.toISOString().slice(0, 10))
-  }
-  return result
-}
+type Zeitraum = 'monat' | 'jahr'
 
 export default function Dashboard() {
+  const [zeitraum, setZeitraum] = useState<Zeitraum>('monat')
   const kvas = useSupabaseQuery(['kvas'], () => kvasRepo.list(), [])
   const projekte = useSupabaseQuery(['projekte'], () => projekteRepo.list(), [])
   const rechnungen = useSupabaseQuery(['rechnungen'], () => rechnungenRepo.list(), [])
@@ -49,26 +41,18 @@ export default function Dashboard() {
   const schwelle = addDaysISO(-7)
   const todosAlt = (todos ?? []).filter((t) => !t.erledigt && t.erstelltAm.slice(0, 10) < schwelle).length
 
-  // Finanz-Header: Einnahmen (bezahlte Rechnungen) minus Ausgaben der
-  // letzten 30 Tage. Approximation über das Rechnungs-Erstelldatum, da kein
-  // separates Zahlungsdatum erfasst wird.
-  const vor30Tage = addDaysISO(-30)
-  const einnahmen30 = (rechnungen ?? [])
-    .filter((r) => r.zahlungsstatus === 'bezahlt' && r.erstelltAm.slice(0, 10) >= vor30Tage)
-    .reduce((sum, r) => sum + rechnungTotals(r.positionen, r.ustSatz).brutto, 0)
-  const ausgaben30 = (ausgaben ?? []).filter((a) => a.datum >= vor30Tage).reduce((sum, a) => sum + a.betrag, 0)
-  const netto30 = einnahmen30 - ausgaben30
-
-  const nettoProWoche = letzteWochenMontage(8).map((montag) => {
-    const sonntagDate = new Date(`${montag}T00:00:00`)
-    sonntagDate.setDate(sonntagDate.getDate() + 6)
-    const sonntag = sonntagDate.toISOString().slice(0, 10)
-    const einnahmen = (rechnungen ?? [])
-      .filter((r) => r.zahlungsstatus === 'bezahlt' && r.erstelltAm.slice(0, 10) >= montag && r.erstelltAm.slice(0, 10) <= sonntag)
-      .reduce((sum, r) => sum + rechnungTotals(r.positionen, r.ustSatz).brutto, 0)
-    const ausg = (ausgaben ?? []).filter((a) => a.datum >= montag && a.datum <= sonntag).reduce((sum, a) => sum + a.betrag, 0)
-    return einnahmen - ausg
-  })
+  // Finanz-Header: umschaltbar zwischen Monats- (letzte 30 Tage + 8-Wochen-
+  // Trend) und Jahresansicht (laufendes Jahr + 12-Monats-Trend). Nutzt die
+  // gemeinsame Berechnung aus utils/finanzen.ts, dieselbe wie im
+  // Finanzen-Jahres-Header.
+  const heuteJahr = new Date().getFullYear()
+  const finanzenMonat = berechneFinanzen(rechnungen ?? [], ausgaben ?? [], addDaysISO(-30), today)
+  const finanzenJahr = berechneFinanzen(rechnungen ?? [], ausgaben ?? [], `${heuteJahr}-01-01`, `${heuteJahr}-12-31`)
+  const finanzenAktuell = zeitraum === 'monat' ? finanzenMonat : finanzenJahr
+  const nettoTrend =
+    zeitraum === 'monat'
+      ? nettoTrendWochen(rechnungen ?? [], ausgaben ?? [], 8)
+      : nettoTrendMonateJahr(rechnungen ?? [], ausgaben ?? [], heuteJahr)
 
   // Widget-Daten
   const offeneKvas = (kvas ?? []).filter((k) => k.status !== 'angenommen' && k.status !== 'abgelehnt')
@@ -93,20 +77,33 @@ export default function Dashboard() {
       <h1 style={{ marginTop: 'var(--s2)' }}>Übersicht</h1>
 
       <div className="card finance-header">
+        <div className="finance-header-top">
+          <span className="finance-header-label">
+            {zeitraum === 'monat' ? 'Letzte 30 Tage' : `Jahr ${heuteJahr}`}
+          </span>
+          <div className="finance-toggle">
+            <button className={zeitraum === 'monat' ? 'active' : ''} onClick={() => setZeitraum('monat')}>
+              Monat
+            </button>
+            <button className={zeitraum === 'jahr' ? 'active' : ''} onClick={() => setZeitraum('jahr')}>
+              Jahr
+            </button>
+          </div>
+        </div>
         <div className="finance-header-main">
-          <div className="finance-value">{formatEuro(netto30)}</div>
+          <div className="finance-value">{formatEuro(finanzenAktuell.netto)}</div>
           <div className="finance-chart">
-            <LineChart values={nettoProWoche} color="var(--green)" />
+            <LineChart values={nettoTrend} color="var(--green)" />
           </div>
         </div>
         <div className="finance-substats">
           <div className="finance-substat red">
-            <div className="finance-substat-value">{formatEuro(ausgaben30)}</div>
-            <div className="finance-substat-label">Ausgaben (30 Tage)</div>
+            <div className="finance-substat-value">{formatEuro(finanzenAktuell.ausgaben)}</div>
+            <div className="finance-substat-label">Ausgaben ({zeitraum === 'monat' ? '30 Tage' : 'Jahr'})</div>
           </div>
           <div className="finance-substat green">
-            <div className="finance-substat-value">{formatEuro(einnahmen30)}</div>
-            <div className="finance-substat-label">Einnahmen (30 Tage)</div>
+            <div className="finance-substat-value">{formatEuro(finanzenAktuell.einnahmen)}</div>
+            <div className="finance-substat-label">Einnahmen ({zeitraum === 'monat' ? '30 Tage' : 'Jahr'})</div>
           </div>
         </div>
       </div>

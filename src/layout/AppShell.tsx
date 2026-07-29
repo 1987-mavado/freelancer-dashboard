@@ -16,7 +16,6 @@ const VERWALTUNG_OPTIONEN = [
   { to: '/kunden/neu', label: 'Kunde' },
   { to: '/projekte/neu', label: 'Projekt' },
   { to: '/bewerbungen/neu', label: 'Bewerbung' },
-  { to: '/jahresuebersicht', label: 'Jahresübersicht (Steuer)' },
   { to: '/kva/neu', label: 'KVA' },
 ]
 
@@ -76,9 +75,9 @@ export default function AppShell() {
           <span className="icon">⌂</span>
           Übersicht
         </NavLink>
-        <NavLink to="/projekte" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <NavLink to="/daily-doing" className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="icon">▤</span>
-          Projekte
+          Daily Doing
         </NavLink>
         <div className="nav-plus-slot">
           <button type="button" className="nav-plus" onClick={() => setMenuOpen(true)} aria-label="Neu anlegen">
