@@ -1,9 +1,9 @@
 import { useSupabaseQuery } from '../../db/useSupabaseQuery'
-import { rechnungenRepo, bewerbungenRepo, zeiteintraegeRepo } from '../../db/repo'
+import { rechnungenRepo, bewerbungenRepo, zeiteintraegeRepo, todosRepo } from '../../db/repo'
 import PageHeader from '../../layout/PageHeader'
 import { rechnungTotals } from '../../utils/rechnung'
 import { formatEuro, todayISO } from '../../utils/format'
-import { montagDerWoche, minutenZuStunden } from '../../utils/zeiterfassung'
+import { montagDerWoche, minutenZuStunden, kumulierteMinutenFuerTodo, formatDauer } from '../../utils/zeiterfassung'
 import type { BewerbungStatus } from '../../db/types'
 
 const bewerbungStatusOrder: BewerbungStatus[] = ['anschreiben_raus', 'call', 'zusage']
@@ -52,6 +52,7 @@ export default function StatistikenPage() {
   const rechnungen = useSupabaseQuery(['rechnungen'], () => rechnungenRepo.list(), [])
   const bewerbungen = useSupabaseQuery(['bewerbungen'], () => bewerbungenRepo.list(), [])
   const zeiteintraege = useSupabaseQuery(['zeiteintraege'], () => zeiteintraegeRepo.list(), [])
+  const todos = useSupabaseQuery(['todos'], () => todosRepo.list(), [])
 
   const offenePosten = (rechnungen ?? [])
     .filter((r) => r.zahlungsstatus !== 'bezahlt')
@@ -81,6 +82,18 @@ export default function StatistikenPage() {
     status,
     anzahl: (bewerbungen ?? []).filter((b) => b.status === status).length,
   }))
+
+  // Soll-Ist-Vergleich: erledigte Aufgaben mit geschätzter Zeit gegen die
+  // tatsächlich dafür erfassten Minuten (über alle Zeitabschnitte der
+  // Aufgabe, siehe kumulierteMinutenFuerTodo) — zeigt, ob die Schätzung
+  // realistisch war.
+  const sollIstVergleich = (todos ?? [])
+    .filter((t) => t.erledigt && t.geschaetzteMinuten > 0)
+    .map((t) => {
+      const erfasst = kumulierteMinutenFuerTodo(zeiteintraege ?? [], t.id!)
+      return { todo: t, erfasst, differenz: erfasst - t.geschaetzteMinuten }
+    })
+    .sort((a, b) => (a.todo.erstelltAm < b.todo.erstelltAm ? 1 : -1))
 
   return (
     <div>
@@ -144,6 +157,28 @@ export default function StatistikenPage() {
           </div>
         ))}
         {gesamtBewerbungen === 0 && <div className="empty">Noch keine Bewerbungen erfasst.</div>}
+      </div>
+
+      <div className="section-title">Soll-Ist-Vergleich (erledigte Aufgaben)</div>
+      <div className="list">
+        {sollIstVergleich.map(({ todo, erfasst, differenz }) => (
+          <div key={todo.id} className="list-item" style={{ cursor: 'default' }}>
+            <div>
+              <div className="list-title">{todo.text}</div>
+              <div className="list-sub">
+                {formatDauer(erfasst)} erfasst · {todo.geschaetzteMinuten} Min. geschätzt
+              </div>
+            </div>
+            <span className={`status-badge ${differenz > 0 ? 'red' : differenz < 0 ? 'green' : 'neutral'}`}>
+              {differenz === 0
+                ? 'Genau nach Plan'
+                : `${differenz > 0 ? '+' : ''}${differenz} Min. ${differenz > 0 ? 'über' : 'unter'} Schätzung`}
+            </span>
+          </div>
+        ))}
+        {sollIstVergleich.length === 0 && (
+          <div className="empty">Noch keine erledigten Aufgaben mit geschätzter Zeit.</div>
+        )}
       </div>
     </div>
   )
