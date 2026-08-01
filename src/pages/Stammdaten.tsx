@@ -40,6 +40,8 @@ export default function Stammdaten() {
   const [syncFailed, setSyncFailed] = useState<string | null>(null)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [logoError, setLogoError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (stammdaten) setForm({ ...emptyForm, ...stammdaten })
@@ -48,6 +50,7 @@ export default function Stammdaten() {
   function set<K extends keyof StammdatenType>(key: K, value: StammdatenType[K]) {
     setForm((f) => ({ ...f, [key]: value }))
     setSaved(false)
+    setSaveError(null)
   }
 
   // Lädt das gewählte Bild in den öffentlichen Supabase-Storage-Bucket
@@ -80,8 +83,16 @@ export default function Stammdaten() {
   }
 
   async function handleSave() {
-    await putStammdaten(form)
-    setSaved(true)
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await putStammdaten(form)
+      setSaved(true)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleGoogleSync() {
@@ -249,9 +260,10 @@ export default function Stammdaten() {
           eines Tages: bis 10 Std. normal, über 10 Std. Gelb, über 12 Std. Rot. Keine Einstellung nötig.
         </p>
 
-        <button className="btn full" onClick={handleSave}>
-          {saved ? 'Gespeichert ✓' : 'Speichern'}
+        <button className="btn full" onClick={handleSave} disabled={saving}>
+          {saving ? 'Speichert…' : saved ? 'Gespeichert ✓' : 'Speichern'}
         </button>
+        {saveError && <p className="error">Fehler beim Speichern: {saveError}</p>}
 
         <div className="section-title">Google Kalender</div>
         <p className="muted">
